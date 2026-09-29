@@ -1,9 +1,10 @@
 import { fetchPublishedJobs, readApiOrigin } from '../shared/api';
+import { divisionChipColor } from '../shared/divisions';
 import { bindErrorCancel, showError } from '../shared/errors';
-import { annualSalary, formatSalary, type JobSummary } from '../shared/jobs';
+import { annualSalary, formatCardSalary, formatPostedDate, isNewJob, type JobSummary } from '../shared/jobs';
 
 const LIST_SELECTOR = '[dev-target="jobs-list"]';
-const TEMPLATE_SELECTOR = '[dev-target="job-card-template"]';
+const CARD_SELECTOR = '[dev-target="job-card-item"]';
 const QUERY_SELECTOR = '[dev-target="jobs-query"]';
 const LOCATION_SELECTOR = '[dev-target="jobs-location"]';
 const CATEGORY_SELECTOR = '[dev-target="jobs-category"]';
@@ -83,58 +84,102 @@ function detailHref(list: HTMLElement, id: number): string {
 	return `${url.pathname}${url.search}`;
 }
 
-function defaultCard(): HTMLAnchorElement {
-	const link = document.createElement('a');
-	link.setAttribute('dev-target', 'job-link');
-
-	for (const [target, tag] of [
-		['job-title', 'h3'],
-		['job-location', 'p'],
-		['job-category', 'p'],
-		['job-type', 'p'],
-		['job-salary', 'p'],
-	] as const) {
-		const node = document.createElement(tag);
-		node.setAttribute('dev-target', target);
-		link.append(node);
+function takeCardTemplate(list: HTMLElement): HTMLElement | null {
+	const card = list.querySelector<HTMLElement>(CARD_SELECTOR);
+	if (!card) {
+		return null;
 	}
 
-	return link;
+	const template = card.cloneNode(true) as HTMLElement;
+	card.remove();
+	return template;
 }
 
-function cloneCard(template: HTMLTemplateElement | HTMLElement | null): ParentNode {
-	if (template instanceof HTMLTemplateElement) {
-		return template.content.cloneNode(true) as DocumentFragment;
-	}
-
-	if (template) {
-		const clone = template.cloneNode(true) as HTMLElement;
-		clone.removeAttribute('dev-target');
-		clone.classList.remove('hide');
-		clone.hidden = false;
-		return clone;
-	}
-
-	return defaultCard();
+function setShown(node: Element | null, shown: boolean): void {
+	node?.classList.toggle('w-condition-invisible', !shown);
 }
 
-function setText(root: ParentNode, target: string, value: string): void {
-	const node = root.querySelector<HTMLElement>(`[dev-target="${target}"]`);
+function setField(root: ParentNode, field: string, value: string): void {
+	const node = root.querySelector<HTMLElement>(`[fs-cmsfilter-field="${field}"]`);
 	if (node) {
 		node.textContent = value;
 	}
 }
 
-function fillCard(root: ParentNode, job: JobSummary, href: string): void {
-	setText(root, 'job-title', job.title);
-	setText(root, 'job-location', job.location);
-	setText(root, 'job-category', job.category);
-	setText(root, 'job-type', job.employmentType);
-	setText(root, 'job-salary', formatSalary(job.salary, job.salaryUnit));
+function fillSalary(root: ParentNode, job: JobSummary): void {
+	const block = root.querySelector<HTMLElement>('.salary');
+	const amount = formatCardSalary(job.salary, job.salaryUnit);
+	const max = block?.querySelector<HTMLElement>('[fs-cmsfilter-field="salary"]') ?? null;
+	const paragraphs = block ? [...block.querySelectorAll('p')] : [];
+	const divider = paragraphs.find((paragraph) => paragraph.hasAttribute('salary-divider') || paragraph.textContent?.trim() === '-') ?? null;
+	const min =
+		paragraphs.find((paragraph) => paragraph !== max && paragraph !== divider && !paragraph.classList.contains('hidden-filter')) ?? null;
 
-	const link = root.querySelector<HTMLAnchorElement>('[dev-target="job-link"]') ?? root.querySelector<HTMLAnchorElement>('a');
-	if (link) {
-		link.href = href;
+	if (max) {
+		max.textContent = amount;
+	}
+	setShown(min, false);
+	setShown(divider, false);
+	setShown(block, Boolean(amount));
+	setShown(root.querySelector('[dev-target="salary-max-pre-div"]'), Boolean(amount));
+}
+
+function fillDivision(root: ParentNode, division: string): void {
+	const chip = root.querySelector<HTMLElement>('[dev-target="division-chip"], .division-chip');
+	if (!chip) {
+		return;
+	}
+
+	const label = chip.querySelector('p');
+	if (!division) {
+		setShown(chip, false);
+		return;
+	}
+
+	setShown(chip, true);
+	if (label) {
+		label.textContent = division;
+	}
+	const color = divisionChipColor(division);
+	if (color) {
+		chip.style.backgroundColor = color;
+		return;
+	}
+
+	chip.style.removeProperty('background-color');
+}
+
+function fillRemote(root: ParentNode, remote: boolean): void {
+	setShown(root.querySelector('[dev-target="remote-role"]'), remote);
+	setShown(root.querySelector('[dev-target="remote-text"], p.remote'), remote);
+	const value = root.querySelector<HTMLElement>('p.hidden-filter[fs-cmsfilter-field="remote"]');
+	if (value) {
+		value.textContent = remote ? 'Yes' : 'No';
+	}
+}
+
+function fillCard(card: HTMLElement, job: JobSummary, href: string): void {
+	if (card instanceof HTMLAnchorElement) {
+		card.href = href;
+	}
+
+	setField(card, 'title', job.title);
+	setField(card, 'location', job.location);
+	setField(card, 'type', job.employmentType);
+	setField(card, 'category', job.category);
+	fillSalary(card, job);
+	fillDivision(card, job.division?.trim() ?? '');
+	fillRemote(card, job.remote === true);
+
+	const posted = card.querySelector<HTMLElement>('[dev-target="date-posted"], .date-field-hidden');
+	if (posted && job.publishedAt != null) {
+		posted.textContent = formatPostedDate(job.publishedAt);
+	}
+	setShown(card.querySelector('.new-job-text'), isNewJob(job.publishedAt));
+
+	const preview = card.querySelector<HTMLElement>('[fs-cmsfilter-field="preview"]');
+	if (preview) {
+		preview.textContent = '';
 	}
 }
 
@@ -153,7 +198,7 @@ function fillCategories(jobs: JobSummary[]): void {
 	}
 }
 
-function render(list: HTMLElement, template: HTMLTemplateElement | HTMLElement | null, jobs: JobSummary[]): void {
+function render(list: HTMLElement, template: HTMLElement, jobs: JobSummary[]): void {
 	const visible = jobs.filter((job) => matches(job, readFilters()));
 	list.replaceChildren();
 
@@ -166,7 +211,7 @@ function render(list: HTMLElement, template: HTMLTemplateElement | HTMLElement |
 	}
 
 	for (const job of visible) {
-		const card = cloneCard(template);
+		const card = template.cloneNode(true) as HTMLElement;
 		fillCard(card, job, detailHref(list, job.id));
 		list.append(card);
 	}
@@ -182,10 +227,11 @@ function bindFilters(onChange: () => void): void {
 
 const list = document.querySelector<HTMLElement>(LIST_SELECTOR);
 if (list) {
-	const template = document.querySelector<HTMLTemplateElement | HTMLElement>(TEMPLATE_SELECTOR);
+	const template = takeCardTemplate(list);
 	bindErrorCancel();
-
-	if (!readApiOrigin()) {
+	if (!template) {
+		showError('Job card is missing.');
+	} else if (!readApiOrigin()) {
 		showError('Careers API is not configured.');
 	} else {
 		let loaded: JobSummary[] = [];

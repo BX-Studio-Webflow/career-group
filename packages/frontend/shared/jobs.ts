@@ -7,6 +7,8 @@ export interface JobSummary {
 	salary: number | null;
 	salaryUnit: string;
 	publishedAt: number | null;
+	division?: string;
+	remote?: boolean;
 }
 
 export interface JobDetail extends JobSummary {
@@ -25,6 +27,43 @@ export function formatSalary(salary: number | null, unit: string): string {
 	}).format(salary);
 
 	return unit ? `${amount} ${unit}` : amount;
+}
+
+export function formatCardSalary(salary: number | null, unit: string): string {
+	if (salary == null) {
+		return '';
+	}
+
+	const amount = new Intl.NumberFormat('en-US', {
+		style: 'currency',
+		currency: 'USD',
+		maximumFractionDigits: salary % 1 === 0 ? 0 : 2,
+	}).format(salary);
+	const normalized = unit.toLowerCase();
+	if (normalized.includes('hour')) {
+		return `${amount}/hr`;
+	}
+
+	return amount;
+}
+
+const NEW_JOB_DAYS = 4;
+
+export function isNewJob(publishedAt: number | null, now = Date.now()): boolean {
+	if (publishedAt == null) {
+		return false;
+	}
+
+	const cutoff = new Date(now);
+	cutoff.setHours(0, 0, 0, 0);
+	cutoff.setDate(cutoff.getDate() - NEW_JOB_DAYS);
+	return publishedAt >= cutoff.getTime();
+}
+
+export function formatPostedDate(publishedAt: number): string {
+	const date = new Date(publishedAt);
+	const year = String(date.getFullYear()).slice(-2);
+	return `${date.getDate()}.${date.getMonth() + 1}.${year}`;
 }
 
 export function annualSalary(job: JobSummary): number | null {
