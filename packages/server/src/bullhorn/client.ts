@@ -1,3 +1,6 @@
+import { request as httpRequest } from 'node:http';
+import { request as httpsRequest } from 'node:https';
+
 import type { ApplicationInput, ResumeFile } from '../validate';
 import type { BullhornConfig } from './config';
 import { DETAIL_FIELDS, LIST_FIELDS } from './fields';
@@ -51,6 +54,63 @@ interface CacheEntry<T> {
 	value: T;
 }
 
+function codeFromLocation(location: string, base: string): string | null {
+	try {
+		return new URL(location, base).searchParams.get('code');
+	} catch {
+		return null;
+	}
+}
+
+async function authorizationCodeFromFetch(url: URL): Promise<string | null> {
+	const response = await fetch(url, { redirect: 'manual' });
+	const location = response.headers.get('location') ?? '';
+	await response.body?.cancel();
+	if (!location) {
+		return null;
+	}
+
+	return codeFromLocation(location, url.origin);
+}
+
+function redirectHeaders(url: URL): Promise<{ status: number; location: string }> {
+	const request = url.protocol === 'http:' ? httpRequest : httpsRequest;
+	return new Promise((resolve, reject) => {
+		const outbound = request(url, { method: 'GET' }, (response) => {
+			response.resume();
+			const header = response.headers.location;
+			const location = Array.isArray(header) ? (header[0] ?? '') : (header ?? '');
+			resolve({ status: response.statusCode ?? 0, location });
+		});
+		outbound.on('error', () => {
+			reject(new BullhornHttpError(502, 'Bullhorn login failed.'));
+		});
+		outbound.end();
+	});
+}
+
+async function authorizationCodeFromRedirects(start: URL): Promise<string> {
+	let current = start;
+	for (let hop = 0; hop < 5; hop += 1) {
+		const { status, location } = await redirectHeaders(current);
+		const code = location ? codeFromLocation(location, current.origin) : null;
+		if (code) {
+			return code;
+		}
+
+		const redirected = status >= 300 && status < 400 && location;
+		if (!redirected) {
+			console.error(`Bullhorn login did not return a code (${status})`);
+			throw new BullhornHttpError(502, 'Bullhorn login failed.');
+		}
+
+		current = new URL(location, current);
+	}
+
+	console.error('Bullhorn login redirect did not include a code');
+	throw new BullhornHttpError(502, 'Bullhorn login failed.');
+}
+
 function isRecord(value: unknown): value is Record<string, unknown> {
 	return Boolean(value) && typeof value === 'object';
 }
@@ -62,6 +122,8 @@ function restUrl(value: string): string {
 export class BullhornClient {
 	private cached: Session | null = null;
 	private pending: Promise<Session> | null = null;
+	private oauthUrl = 'https://auth.bullhornstaffing.com/oauth';
+	private restLoginUrl = 'https://rest.bullhornstaffing.com/rest-services/login';
 	private readonly lists = new Map<string, CacheEntry<JobList>>();
 	private readonly details = new Map<number, CacheEntry<JobDetail>>();
 
@@ -305,34 +367,56 @@ export class BullhornClient {
 				code,
 				client_id: this.config.clientId,
 				client_secret: this.config.clientSecret,
+				redirect_uri: this.config.redirectUri,
 			}),
 		);
 		this.cached = next;
 		return next;
 	}
 
+	private async discoverEndpoints(): Promise<void> {
+		const url = new URL('https://rest.bullhornstaffing.com/rest-services/loginInfo');
+		url.searchParams.set('username', this.config.username);
+		const response = await fetch(url, { headers: { Accept: 'application/json' } });
+		if (!response.ok) {
+			await response.body?.cancel();
+			console.error(`Bullhorn loginInfo failed: ${response.status}`);
+			return;
+		}
+
+		const body: unknown = await response.json();
+		if (!isRecord(body)) {
+			return;
+		}
+
+		if (typeof body.oauthUrl === 'string' && body.oauthUrl) {
+			this.oauthUrl = body.oauthUrl.replace(/\/$/, '');
+		}
+		if (typeof body.restUrl === 'string' && body.restUrl) {
+			this.restLoginUrl = `${body.restUrl.replace(/\/$/, '')}/login`;
+		}
+	}
+
 	private async authorizationCode(): Promise<string> {
-		const url = new URL('/oauth/authorize', this.config.authUrl);
+		await this.discoverEndpoints();
+		const url = new URL('authorize', `${this.oauthUrl}/`);
 		url.searchParams.set('client_id', this.config.clientId);
 		url.searchParams.set('response_type', 'code');
 		url.searchParams.set('action', 'Login');
 		url.searchParams.set('username', this.config.username);
 		url.searchParams.set('password', this.config.password);
+		url.searchParams.set('redirect_uri', this.config.redirectUri);
 
-		const response = await fetch(url, { redirect: 'manual' });
-		const location = response.headers.get('location') ?? '';
-		await response.body?.cancel();
-		const code = new URL(location || 'https://auth.bullhornstaffing.com/', this.config.authUrl).searchParams.get('code');
-		if (!code) {
-			console.error('Bullhorn login did not return a code');
-			throw new BullhornHttpError(502, 'Bullhorn login failed.');
+		const fromFetch = await authorizationCodeFromFetch(url);
+		if (fromFetch) {
+			return fromFetch;
 		}
 
-		return code;
+		return authorizationCodeFromRedirects(url);
 	}
 
 	private async exchange(fields: Record<string, string>): Promise<TokenSet> {
-		const response = await fetch(new URL('/oauth/token', this.config.authUrl), {
+		const response = await fetch(new URL('token', `${this.oauthUrl}/`), {
 			method: 'POST',
 			headers: { 'Content-Type': 'application/x-www-form-urlencoded', Accept: 'application/json' },
 			body: new URLSearchParams(fields),
@@ -355,7 +439,7 @@ export class BullhornClient {
 	}
 
 	private async openSession(token: TokenSet): Promise<Session> {
-		const url = new URL(this.config.restLoginUrl);
+		const url = new URL(this.restLoginUrl);
 		url.searchParams.set('version', '*');
 		url.searchParams.set('access_token', token.accessToken);
 

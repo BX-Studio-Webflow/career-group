@@ -5,6 +5,7 @@ export interface BullhornConfig {
 	password: string;
 	submissionStatus: string;
 	candidateStatus: string;
+	redirectUri: string;
 	authUrl: string;
 	restLoginUrl: string;
 }
@@ -26,6 +27,7 @@ export function readConfig(env: NodeJS.ProcessEnv = process.env): BullhornConfig
 		password,
 		submissionStatus: env.BULLHORN_SUBMISSION_STATUS?.trim() || 'Web Response',
 		candidateStatus: env.BULLHORN_CANDIDATE_STATUS?.trim() ?? '',
+		redirectUri: env.BULLHORN_REDIRECT_URI?.trim() || 'http://www.bullhorn.com',
 		authUrl: 'https://auth.bullhornstaffing.com',
 		restLoginUrl: 'https://rest.bullhornstaffing.com/rest-services/login',
 	};

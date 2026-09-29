@@ -52,6 +52,13 @@ class FakeBullhorn {
 		this.calls.push(`${method} ${url.pathname}`);
 		this.urls.push(url.toString());
 
+		if (url.pathname.endsWith('/loginInfo')) {
+			return Response.json({
+				oauthUrl: 'https://auth-west.bullhornstaffing.com/oauth',
+				restUrl: 'https://rest-west.bullhornstaffing.com/rest-services',
+			});
+		}
+
 		if (url.pathname === '/oauth/authorize') {
 			return new Response(null, {
 				status: 302,
