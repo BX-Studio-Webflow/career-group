@@ -1,12 +1,11 @@
 {
-	"name": "@actian/frontend",
+	"name": "@career-group/frontend",
 	"version": "0.0.0",
 	"private": true,
 	"type": "module",
 	"scripts": {
 		"dev": "cross-env NODE_ENV=development node ./bin/build.js",
 		"build": "cross-env NODE_ENV=production node ./bin/build.js",
-		"deploy": "pnpm build && wrangler pages deploy dist --project-name actian-frontend-assets --skip-caching",
 		"check": "tsc --noEmit",
 		"lint": "eslint ./pages ./shared && prettier --check ./pages ./shared ./bin",
 		"lint:fix": "eslint ./pages ./shared --fix && prettier --write ./pages ./shared ./bin"
@@ -21,7 +20,6 @@
 		"eslint-plugin-simple-import-sort": "^12.1.1",
 		"prettier": "^3.6.2",
 		"typescript": "^5.5.2",
-		"typescript-eslint": "^8.46.4",
-		"wrangler": "^4.47.0"
+		"typescript-eslint": "^8.46.4"
 	}
 }

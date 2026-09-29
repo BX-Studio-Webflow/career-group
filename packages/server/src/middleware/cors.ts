@@ -4,7 +4,7 @@ import type { AppEnv } from '../types';
 import { allowedOrigin, preflightResponse, withCors } from '../utils/cors';
 
 export const cors = createMiddleware<AppEnv>(async (context, next) => {
-	const origin = allowedOrigin(context.req.raw, context.env.CORS_ORIGINS || '*');
+	const origin = allowedOrigin(context.req.raw, process.env.CORS_ORIGINS || '*');
 	if (context.req.method === 'OPTIONS') {
 		return preflightResponse(origin);
 	}

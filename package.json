@@ -1,34 +1,27 @@
 {
-	"name": "@bx/actian-worker",
+	"name": "@bx/career-group",
 	"version": "0.0.0",
 	"private": true,
-	"description": "Monorepo for Actian gated trial downloads (Webflow frontend + Cloudflare Worker).",
+	"description": "Monorepo for the Career Group Companies Bullhorn careers integration (Webflow scripts + Vercel API).",
 	"type": "module",
 	"scripts": {
-		"dev": "concurrently \"pnpm --filter @actian/frontend dev\" \"pnpm --filter @actian/server dev\"",
-		"build": "concurrently \"pnpm --filter @actian/frontend build\" \"pnpm --filter @actian/server build\"",
-		"dev:frontend": "pnpm --filter @actian/frontend dev",
-		"build:frontend": "pnpm --filter @actian/frontend build",
-		"deploy:frontend": "pnpm --filter @actian/frontend deploy",
-		"dev:server": "pnpm --filter @actian/server dev",
-		"build:server": "pnpm --filter @actian/server build",
-		"deploy": "pnpm --filter @actian/server deploy",
-		"deploy:server": "pnpm --filter @actian/server deploy:production",
+		"dev": "concurrently \"pnpm --filter @career-group/frontend dev\" \"pnpm --filter @career-group/server dev\"",
+		"build": "concurrently \"pnpm --filter @career-group/frontend build\" \"pnpm --filter @career-group/server build\"",
+		"dev:frontend": "pnpm --filter @career-group/frontend dev",
+		"build:frontend": "pnpm --filter @career-group/frontend build",
+		"dev:server": "pnpm --filter @career-group/server dev",
+		"build:server": "pnpm --filter @career-group/server build",
+		"deploy": "pnpm --filter @career-group/server deploy",
+		"deploy:server": "pnpm --filter @career-group/server deploy",
 		"lint": "pnpm -r lint",
 		"lint:fix": "pnpm -r lint:fix",
-		"check": "pnpm --filter @actian/frontend check && pnpm --filter @actian/server check",
-		"test": "pnpm --filter @actian/server test",
-		"cf-typegen": "pnpm --filter @actian/server cf-typegen",
-		"upload": "pnpm --filter @actian/server upload",
-		"upload:dry": "pnpm --filter @actian/server upload:dry",
-		"wrangler:login": "wrangler login",
-		"wrangler:logout": "wrangler logout"
+		"check": "pnpm --filter @career-group/frontend check && pnpm --filter @career-group/server check",
+		"test": "pnpm --filter @career-group/server test"
 	},
 	"devDependencies": {
 		"concurrently": "^9.1.2",
 		"prettier": "^3.6.2",
-		"typescript": "^5.5.2",
-		"wrangler": "^4.47.0"
+		"typescript": "^5.5.2"
 	},
 	"engines": {
 		"pnpm": ">=10"

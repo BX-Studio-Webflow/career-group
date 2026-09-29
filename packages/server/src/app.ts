@@ -1,26 +1,25 @@
 import { Hono } from 'hono';
 
-import { download, issueDownloadLink } from './controllers/download';
-import { receiveMarketoWebhook } from './controllers/marketo';
+import { fail } from './http';
+import { applyToJob, getJob, listJobs } from './jobs';
 import { cors } from './middleware/cors';
 import { requestId } from './middleware/request-id';
 import { requestLog } from './middleware/request-log';
 import type { AppEnv } from './types';
-import { jsonError, jsonOk } from './utils/download';
 
 const app = new Hono<AppEnv>();
 
 app.use('*', cors, requestId, requestLog);
 
-app.get('/health', () => jsonOk({ status: 'ok' }));
-app.post('/api/link', issueDownloadLink);
-app.on(['GET', 'HEAD'], '/download/:token', download);
-app.post('/webhook/marketo', receiveMarketoWebhook);
+app.get('/health', (context) => context.json({ ok: true, status: 'ok' }));
+app.get('/api/jobs', listJobs);
+app.get('/api/jobs/:id', getJob);
+app.post('/api/jobs/:id/apply', applyToJob);
 
-app.notFound(() => jsonError(404, 'not_found', 'Not found.'));
-app.onError((error) => {
-	console.error('Worker error:', error.message);
-	return jsonError(500, 'internal_error', 'Request failed.');
+app.notFound((context) => fail(context, 404, 'not_found', 'Not found.'));
+app.onError((error, context) => {
+	console.error('Request failed:', error instanceof Error ? error.message : 'unknown');
+	return fail(context, 500, 'internal_error', 'Request failed.');
 });
 
 export default app;

@@ -1,19 +1,7 @@
-import { defineWorkersConfig } from '@cloudflare/vitest-pool-workers/config';
+import { defineConfig } from 'vitest/config';
 
-export default defineWorkersConfig({
+export default defineConfig({
 	test: {
-		poolOptions: {
-			workers: {
-				wrangler: { configPath: './wrangler.jsonc' },
-				isolatedStorage: false,
-				miniflare: {
-					bindings: {
-						TOKEN_SECRET: 'test-secret-do-not-use-in-production',
-						LEAD_HASH_SECRET: 'test-lead-hash-secret-do-not-use-in-production',
-						ALLOWED_FILES: '{"trials/sample.bin":"trials/sample.bin"}',
-					},
-				},
-			},
-		},
+		environment: 'node',
 	},
 });

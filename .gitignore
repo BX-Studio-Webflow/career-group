@@ -157,14 +157,12 @@ out
 .yarn/install-state.gz
 .pnp.\*
 
-# wrangler project
+# Local secrets and Vercel
 
 .dev.vars*
 !.dev.vars.example
 .env*
 !.env.example
 .wrangler/
-
-# Local trial binaries (upload to R2; do not commit)
-packages/server/downloads/
+.vercel/
 

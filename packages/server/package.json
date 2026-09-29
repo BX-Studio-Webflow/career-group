@@ -1,46 +1,35 @@
 {
-	"name": "@actian/server",
+	"name": "@career-group/server",
 	"version": "0.0.0",
 	"private": true,
 	"type": "module",
 	"scripts": {
-		"deploy": "wrangler deploy --env production",
-		"deploy:development": "wrangler deploy --env development",
-		"deploy:production": "wrangler deploy --env production",
-		"dev": "wrangler dev --env development",
-		"build": "wrangler deploy --dry-run --env production",
-		"start": "wrangler dev",
+		"dev": "tsx src/node.ts",
+		"build": "tsc --noEmit",
+		"deploy": "vercel deploy --prod",
 		"test": "vitest run",
 		"test:watch": "vitest",
 		"lint": "eslint ./src && prettier --check ./src",
 		"lint:fix": "eslint ./src --fix && prettier --write ./src",
-		"check": "tsc --noEmit",
-		"cf-typegen": "wrangler types",
-		"db:generate": "drizzle-kit generate",
-		"db:migrate:development": "wrangler d1 migrations apply DB --env development --remote",
-		"db:migrate:production": "wrangler d1 migrations apply DB --env production --remote",
-		"upload": "node ./scripts/upload-r2.mjs",
-		"upload:dry": "node ./scripts/upload-r2.mjs --dry-run"
+		"check": "tsc --noEmit"
 	},
 	"devDependencies": {
-		"@aws-sdk/client-s3": "^3.943.0",
-		"@aws-sdk/lib-storage": "^3.943.0",
-		"@cloudflare/vitest-pool-workers": "^0.8.19",
 		"@eslint/js": "^9.39.1",
+		"@hono/node-server": "^1.19.9",
+		"@types/node": "^22.19.1",
 		"dotenv": "^18.0.1",
-		"drizzle-kit": "^0.31.11",
 		"eslint": "^9.39.1",
 		"eslint-config-prettier": "^10.1.8",
 		"eslint-plugin-prettier": "^5.5.4",
 		"eslint-plugin-simple-import-sort": "^12.1.1",
 		"prettier": "^3.6.2",
+		"tsx": "^4.20.6",
 		"typescript": "^5.5.2",
 		"typescript-eslint": "^8.46.4",
-		"vitest": "~3.2.0",
-		"wrangler": "^4.47.0"
+		"vercel": "^48.1.6",
+		"vitest": "~3.2.0"
 	},
 	"dependencies": {
-		"drizzle-orm": "^0.45.3",
 		"hono": "^4.13.8",
 		"zod": "^4.6.5"
 	}

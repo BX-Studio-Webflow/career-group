@@ -1,7 +1,0 @@
-{
-  "version": 3,
-  "sources": ["../../bin/live-reload.js", "../../pages/marketo.ts"],
-  "sourcesContent": ["new EventSource(`${SERVE_ORIGIN}/esbuild`).addEventListener('change', () => location.reload());\n", "const EMAIL_STORAGE_KEY = 'actian-trial-email';\n\nfunction storeEmail(email: string): void {\n\tconst trimmed = email.trim();\n\tif (trimmed) {\n\t\tsessionStorage.setItem(EMAIL_STORAGE_KEY, trimmed);\n\t}\n}\n\nfunction bindMarketo(): void {\n\tif (!window.MktoForms2) {\n\t\treturn;\n\t}\n\n\twindow.MktoForms2.whenReady((form) => {\n\t\tform.onSuccess((values) => {\n\t\t\tconsole.log('[Marketo] Form submitted with email values:', values.Email || values.email);\n\t\t\tstoreEmail(values.Email || values.email || '');\n\t\t\treturn true;\n\t\t});\n\t});\n}\n\nbindMarketo();\n"],
-  "mappings": ";AAAA,IAAI,YAAY,GAAG,uBAAY,UAAU,EAAE,iBAAiB,UAAU,MAAM,SAAS,OAAO,CAAC;;;ACA7F,IAAM,oBAAoB;AAE1B,SAAS,WAAW,OAAqB;AACxC,QAAM,UAAU,MAAM,KAAK;AAC3B,MAAI,SAAS;AACZ,mBAAe,QAAQ,mBAAmB,OAAO;AAAA,EAClD;AACD;AAEA,SAAS,cAAoB;AAC5B,MAAI,CAAC,OAAO,YAAY;AACvB;AAAA,EACD;AAEA,SAAO,WAAW,UAAU,CAAC,SAAS;AACrC,SAAK,UAAU,CAAC,WAAW;AAC1B,cAAQ,IAAI,+CAA+C,OAAO,SAAS,OAAO,KAAK;AACvF,iBAAW,OAAO,SAAS,OAAO,SAAS,EAAE;AAC7C,aAAO;AAAA,IACR,CAAC;AAAA,EACF,CAAC;AACF;AAEA,YAAY;",
-  "names": []
-}

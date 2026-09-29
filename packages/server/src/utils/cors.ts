@@ -1,4 +1,4 @@
-const ALLOWED_DOMAINS = ['actian.com', 'jaspersoft.com', 'webflow.io'];
+const ALLOWED_DOMAINS = ['careergroupcompanies.com', 'webflow.io'];
 
 function isAllowedHost(hostname: string): boolean {
 	return ALLOWED_DOMAINS.some((domain) => hostname === domain || hostname.endsWith(`.${domain}`));
@@ -34,7 +34,7 @@ export function allowedOrigin(request: Request, corsOrigins: string): string | n
 	return null;
 }
 
-export function corsHeaders(origin: string | null): HeadersInit {
+export function corsHeaders(origin: string | null): Record<string, string> {
 	const headers: Record<string, string> = {
 		Vary: 'Origin',
 		'Access-Control-Allow-Methods': 'GET, HEAD, POST, OPTIONS',
