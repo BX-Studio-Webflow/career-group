@@ -1,8 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import app from '../src/app';
-import { resetBullhornState } from '../src/bullhorn/client';
-import { escapeLucene, mapJob, publishedJobsQuery } from '../src/bullhorn/map';
+import app from '../src/app.js';
+import { resetBullhornState } from '../src/bullhorn/client.js';
+import { escapeLucene, mapJob, publishedJobsQuery } from '../src/bullhorn/map.js';
 
 const REST = 'https://rest91.bullhornstaffing.com/rest-services/corp/';
 const ENV_KEYS = [

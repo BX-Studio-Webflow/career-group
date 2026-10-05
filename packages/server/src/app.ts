@@ -1,11 +1,11 @@
 import { Hono } from 'hono';
 
-import { fail } from './http';
-import { applyToJob, getJob, listJobs } from './jobs';
-import { cors } from './middleware/cors';
-import { requestId } from './middleware/request-id';
-import { requestLog } from './middleware/request-log';
-import type { AppEnv } from './types';
+import { fail } from './http.js';
+import { applyToJob, getJob, listJobs } from './jobs.js';
+import { cors } from './middleware/cors.js';
+import { requestId } from './middleware/request-id.js';
+import { requestLog } from './middleware/request-log.js';
+import type { AppEnv } from './types.js';
 
 const app = new Hono<AppEnv>();
 

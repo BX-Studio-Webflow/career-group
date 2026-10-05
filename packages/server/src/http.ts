@@ -1,6 +1,6 @@
 import type { Context } from 'hono';
 
-import type { AppEnv } from './types';
+import type { AppEnv } from './types.js';
 
 export const JOB_CACHE_CONTROL = 'public, s-maxage=300, stale-while-revalidate=600';
 

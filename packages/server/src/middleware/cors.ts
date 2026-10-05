@@ -1,7 +1,7 @@
 import { createMiddleware } from 'hono/factory';
 
-import type { AppEnv } from '../types';
-import { allowedOrigin, preflightResponse, withCors } from '../utils/cors';
+import type { AppEnv } from '../types.js';
+import { allowedOrigin, preflightResponse, withCors } from '../utils/cors.js';
 
 export const cors = createMiddleware<AppEnv>(async (context, next) => {
 	const origin = allowedOrigin(context.req.raw, process.env.CORS_ORIGINS || '*');

@@ -1,6 +1,6 @@
 import { createMiddleware } from 'hono/factory';
 
-import type { AppEnv } from '../types';
+import type { AppEnv } from '../types.js';
 
 export const requestLog = createMiddleware<AppEnv>(async (context, next) => {
 	const startedAt = Date.now();

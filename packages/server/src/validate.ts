@@ -1,7 +1,7 @@
 import { z } from 'zod';
 
-import { parseJobId } from './bullhorn/ids';
-import type { ListQuery } from './bullhorn/map';
+import { parseJobId } from './bullhorn/ids.js';
+import type { ListQuery } from './bullhorn/map.js';
 
 export const MAX_RESUME_BYTES = 4 * 1024 * 1024;
 

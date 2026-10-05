@@ -1,10 +1,10 @@
 import type { Context } from 'hono';
 
-import { bullhornClient, BullhornHttpError, ConfigError } from './bullhorn/client';
-import { readConfig } from './bullhorn/config';
-import { fail, JOB_CACHE_CONTROL } from './http';
-import type { AppEnv } from './types';
-import { parseApplication, parseJobParam, parseListQuery } from './validate';
+import { bullhornClient, BullhornHttpError, ConfigError } from './bullhorn/client.js';
+import { readConfig } from './bullhorn/config.js';
+import { fail, JOB_CACHE_CONTROL } from './http.js';
+import type { AppEnv } from './types.js';
+import { parseApplication, parseJobParam, parseListQuery } from './validate.js';
 
 function clientFromEnv() {
 	const config = readConfig();

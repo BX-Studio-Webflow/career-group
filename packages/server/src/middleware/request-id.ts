@@ -1,6 +1,6 @@
 import { createMiddleware } from 'hono/factory';
 
-import type { AppEnv } from '../types';
+import type { AppEnv } from '../types.js';
 
 const REQUEST_ID_HEADER = 'X-Request-Id';
 

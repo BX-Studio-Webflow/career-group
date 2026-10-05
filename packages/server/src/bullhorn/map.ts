@@ -1,4 +1,4 @@
-import { PUBLISHED_QUERY } from './fields';
+import { PUBLISHED_QUERY } from './fields.js';
 
 export interface ListQuery {
 	q?: string;

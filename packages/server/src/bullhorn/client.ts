@@ -1,11 +1,11 @@
 import { request as httpRequest } from 'node:http';
 import { request as httpsRequest } from 'node:https';
 
-import type { ApplicationInput, ResumeFile } from '../validate';
-import type { BullhornConfig } from './config';
-import { DETAIL_FIELDS, LIST_FIELDS } from './fields';
-import { quoteWhere } from './ids';
-import { type JobDetail, type JobSummary, type ListQuery, mapJob, publishedJobsQuery } from './map';
+import type { ApplicationInput, ResumeFile } from '../validate.js';
+import type { BullhornConfig } from './config.js';
+import { DETAIL_FIELDS, LIST_FIELDS } from './fields.js';
+import { quoteWhere } from './ids.js';
+import { type JobDetail, type JobSummary, type ListQuery, mapJob, publishedJobsQuery } from './map.js';
 
 export class BullhornHttpError extends Error {
 	readonly status: number;

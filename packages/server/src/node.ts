@@ -3,7 +3,7 @@ import { existsSync } from 'node:fs';
 import { serve } from '@hono/node-server';
 import { config } from 'dotenv';
 
-import app from './app';
+import app from './app.js';
 
 if (existsSync('.env')) {
 	config();
