@@ -254,7 +254,7 @@ export class BullhornClient {
 				{
 					method: 'PUT',
 					headers: { 'Content-Type': resume.mediaType },
-					body: resume.bytes,
+					body: new Blob([new Uint8Array(resume.bytes)], { type: resume.mediaType }),
 				},
 			);
 			if (!response.ok) {
