@@ -11,6 +11,7 @@ export interface JobSummary {
 	publishedAt: number | null;
 	division?: string;
 	remote?: boolean;
+	worksite?: string;
 }
 
 export interface JobDetail extends JobSummary {

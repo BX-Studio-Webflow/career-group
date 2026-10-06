@@ -257,12 +257,31 @@ function fillDivision(root, division) {
   }
   chip.style.removeProperty("background-color");
 }
-function fillRemote(root, remote) {
-  setShown(root.querySelector('[dev-target="remote-role"]'), remote);
-  setShown(root.querySelector('[dev-target="remote-text"], p.remote'), remote);
+function setWorksiteLabel(node, label) {
+  const walker = document.createTreeWalker(node, NodeFilter.SHOW_TEXT);
+  let current = walker.nextNode();
+  while (current) {
+    if (current.textContent?.trim()) {
+      current.textContent = label;
+      return;
+    }
+    current = walker.nextNode();
+  }
+  node.textContent = label;
+}
+function fillWorksite(root, worksite) {
+  const shown = worksite === "Remote" || worksite === "Hybrid";
+  setShown(root.querySelector('[dev-target="remote-role"]'), shown);
+  const text = root.querySelector('[dev-target="remote-text"], p.remote');
+  if (text) {
+    if (shown) {
+      setWorksiteLabel(text, worksite);
+    }
+    setShown(text, shown);
+  }
   const value = root.querySelector('p.hidden-filter[fs-cmsfilter-field="remote"]');
   if (value) {
-    value.textContent = remote ? "Yes" : "No";
+    value.textContent = worksite === "Remote" ? "Yes" : worksite === "Hybrid" ? "Hybrid" : "No";
   }
 }
 function fillCard(card, job, href) {
@@ -281,7 +300,7 @@ function fillCard(card, job, href) {
   setField(card, "category", job.category);
   fillSalary(card, job);
   fillDivision(card, job.division?.trim() ?? "");
-  fillRemote(card, job.remote === true);
+  fillWorksite(card, job.worksite?.trim() || (job.remote ? "Remote" : ""));
   const posted = card.querySelector('[dev-target="date-posted"], .date-field-hidden');
   if (posted && job.publishedAt != null) {
     posted.textContent = formatPostedDate(job.publishedAt);

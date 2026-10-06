@@ -172,7 +172,17 @@ describe('published job query', () => {
 		expect(mapJob(publishedJob(10, { isDeleted: true, isPublic: 1 }))).toBeNull();
 		expect(mapJob(publishedJob(10, { isPublic: 1 }))?.title).toBe('Accountant');
 		expect(mapJob(publishedJob(10))?.description).toBe('<p>Hello</p>');
-		expect(mapJob(publishedJob(10))?.location).toBe('Austin, TX, United States');
+		expect(mapJob(publishedJob(10))?.location).toBe('Austin, TX');
+		expect(mapJob(publishedJob(10, { address: { city: 'San Francisco', state: 'California', countryName: 'United States' } }))?.location).toBe(
+			'San Francisco, CA',
+		);
+		expect(mapJob(publishedJob(10, { address: { city: 'London', state: '', countryName: 'United Kingdom' } }))?.location).toBe(
+			'London, United Kingdom',
+		);
+		expect(mapJob(publishedJob(10, { customText5: 'Marketing' }))?.category).toBe('Marketing');
+		expect(mapJob(publishedJob(10))?.category).toBe('Accounting');
+		expect(mapJob(publishedJob(10, { customText10: 'Hybrid' }))).toMatchObject({ remote: false, worksite: 'Hybrid' });
+		expect(mapJob(publishedJob(10, { customText10: 'Onsite' }))).toMatchObject({ remote: false, worksite: 'Onsite' });
 		expect(
 			mapJob(
 				publishedJob(10, {
@@ -183,7 +193,7 @@ describe('published job query', () => {
 					customText12: 'No',
 				}),
 			),
-		).toMatchObject({ title: 'Public Accountant', salaryMin: 90000, salaryMax: 110000, salary: 110000, remote: true });
+		).toMatchObject({ title: 'Public Accountant', salaryMin: 90000, salaryMax: 110000, salary: 110000, remote: true, worksite: 'Remote' });
 		expect(mapJob(publishedJob(10, { customText12: 'Yes', customFloat2: 110000 }))?.salary).toBeNull();
 		expect(mapJob(publishedJob(10, { payRate: 30, customFloat3: 30, salary: 0, salaryUnit: '' }))).toMatchObject({
 			salary: 30,

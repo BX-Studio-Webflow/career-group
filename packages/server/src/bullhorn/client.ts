@@ -489,6 +489,7 @@ function mapSearch(body: unknown, query: ListQuery): JobList {
 			publishedAt: job.publishedAt,
 			division: job.division,
 			remote: job.remote,
+			worksite: job.worksite,
 		})),
 	};
 }

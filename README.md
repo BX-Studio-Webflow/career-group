@@ -24,51 +24,82 @@ flowchart LR
   vercel -->|"OAuth session"| bullhorn
 ```
 
-Only jobs a recruiter has published with Actions, then Publish, are returned (`isOpen`, `isPublic`, not deleted). An application becomes one Candidate per email and an internal JobSubmission with status `Web Response`. Applying to ten jobs creates one candidate and ten submissions. A second application to the same job does not create another submission.
+A job is listed when Publishing Status is on and the record is not deleted (`isDeleted:false AND isPublic:1`). Search uses `isPublic:1`. `isPublic:true` matches nothing in this corp. Closed jobs stay on the list when the public flag is still on.
 
-The detail link is a stable `?id=` on one Webflow template. It does not change between page loads.
+An application becomes one Candidate per email and an internal JobSubmission with status `Web Response`. Applying to ten jobs creates one candidate and ten submissions. A second application to the same job does not create another submission.
+
+The detail link is `?id=` on one Webflow page, by default `/dev/job-posting-dev?id={bullhornJobId}`.
 
 ## API
 
 | Route | Method | Purpose |
 | --- | --- | --- |
 | `/health` | `GET` | `{ "ok": true, "status": "ok" }` |
-| `/api/jobs` | `GET` | Published jobs. Optional `q`, `location`, `category`, `start`, `count`. Cached for 5 minutes. |
+| `/api/jobs` | `GET` | Published jobs. Optional `q`, `location`, `category`, `start`, `count`. |
 | `/api/jobs/:id` | `GET` | One published job, including the public description. `404` when it is not published. |
 | `/api/jobs/:id/apply` | `POST` | Multipart application. Not cached. |
+
+`count` is 1–200, default 50. `start` is 0–10,000. The listing script requests pages of 200 and stops at 500 jobs.
 
 Apply fields are `firstName`, `lastName`, `email`, `phone`, and an optional `resume` (`pdf`, `doc`, or `docx`, 4 MB). The 4 MB cap stays under Vercel's request body limit. A missing resume is fine. If the resume upload fails after the submission is created, the response is still `{ "ok": true, "resumeAttached": false }`.
 
 `CORS_ORIGINS` is a comma-separated list, or `*`. `careergroupcompanies.com`, `webflow.io`, and their subdomains are still allowed when the list is restricted.
 
+## Caching
+
+Job reads are cached in two places. Applications and errors are not.
+
+**Vercel CDN.** `GET /api/jobs` and `GET /api/jobs/:id` send `Cache-Control: public, s-maxage=300, stale-while-revalidate=600`. The edge can serve a response for 5 minutes, then keep serving that copy for another 10 minutes while it fetches a fresh one. There is no `max-age`, so the browser is not told to keep its own copy.
+
+**Server memory.** The Bullhorn client in a warm Node process keeps:
+
+- Each job list, keyed by the query, for 5 minutes.
+- Each job detail, keyed by id, for 5 minutes. A missing or unpublished job is not stored.
+- The Bullhorn session until 30 seconds before the token expires. It then uses the refresh token, and logs in again only if refresh fails.
+
+That memory cache lives only as long as the server instance. A cold start talks to Bullhorn again. `POST /api/jobs/:id/apply` and every error response use `Cache-Control: no-store`.
+
 ## Bullhorn
 
-The API logs in with the Bullhorn API user (authorize, token exchange, REST login) and keeps the session in memory. Set these in the Vercel project:
+The API discovers the cluster with `loginInfo`, then logs in (authorize, token exchange, REST login) and keeps the session in memory. The registered redirect URI must be exactly `http://www.bullhorn.com`. Set these in the Vercel project:
 
 ```
 BULLHORN_CLIENT_ID
 BULLHORN_CLIENT_SECRET
 BULLHORN_API_USERNAME
 BULLHORN_API_PASSWORD
+BULLHORN_REDIRECT_URI=http://www.bullhorn.com
 BULLHORN_SUBMISSION_STATUS=Web Response
+BULLHORN_CANDIDATE_STATUS=New Lead
 CORS_ORIGINS=https://www.careergroupcompanies.com,https://careergroupcompanies.com
 ```
 
-`BULLHORN_CANDIDATE_STATUS` is optional. Leave it empty unless creating a Candidate requires a status value from their picklist.
+`BULLHORN_CANDIDATE_STATUS` is sent only when it is set. This corp uses `New Lead`.
 
-This uses the standard JobOrder, Candidate, JobSubmission, and file endpoints. It does not use the Bullhorn Open Source Career Portal, and it does not create custom fields.
+This uses the standard JobOrder, Candidate, JobSubmission, and file endpoints. It does not use the Bullhorn Open Source Career Portal, and it does not create custom fields. Resume uploads use file type `SAMPLE`.
 
-### Field review before go-live
+### Limits
 
-API access was not available when this was built. The mapped fields are the standard ones set by Publish. Confirm these in the Client corp and change `packages/server/src/bullhorn/fields.ts` if their names differ:
+Bullhorn's ATS API usage limits, per OAuth client id, are 1,500 requests per minute, 100,000 calls per month unless the contract says otherwise, 50 concurrent sessions, and 50 event subscriptions. This integration does not use subscriptions. Over the per-minute cap, Bullhorn returns HTTP 429. This API does not retry those. Their list endpoints document a maximum `count` of 500. This API never asks for more than 200.
 
-- Publish sets `isPublic` and `publicDescription`.
-- The candidate-facing title is `title`.
-- Location filters use `address.city`, `address.state`, and `address.countryName`.
-- Salary filters use `salary` and `salaryUnit`. Amounts are shown as USD. Hourly, daily, weekly, and monthly salaries are converted to an annual number for the min and max inputs.
-- `Web Response` is a valid JobSubmission status.
-- New Candidate records do not require extra fields. If they do, their Bullhorn partners add or relax those fields, or set `BULLHORN_CANDIDATE_STATUS`.
-- Resume uploads use file type `SAMPLE`.
+### Fields
+
+| Careers value | JobOrder field |
+| --- | --- |
+| Publishing Status | `isPublic` (search `isPublic:1`) |
+| Public title | `customText15`, then `title` |
+| Location | `address.city` and the state abbreviation, such as `San Francisco, CA`. A non-US country stays on the line. |
+| Employment type | `employmentType` |
+| Category | `customText5` (Job Function), then `publishedCategory.name` |
+| Annual pay | `customFloat1` min, `customFloat2` max |
+| Hourly pay | `payRate` min, `customFloat3` max, used when both annual amounts are empty |
+| Hide salary | `customText12` = Yes blanks the amounts |
+| Worksite | `customText10`. The card shows `Remote` or `Hybrid`. Onsite and blank stay hidden. |
+| Division | `customText20` |
+| Posted date | `customDate1`, then `dateLastPublished` |
+| Public description | `publicDescription` (detail only) |
+
+`clientBillRate` is not shown as pay. Division codes: `CG` Career Group, `SB` Syndicatebleu, `FF` Fourth Floor, `CGS` Career Group Search, `CGC` CGC Internal, `Event` or `Events` Career Group Events. An unknown code is shown as stored.
 
 ## Webflow
 
@@ -93,37 +124,28 @@ Production loads the built files from jsDelivr at a pinned commit. The scripts c
 ></script>
 ```
 
-Listing markup. `detail-path` is the detail page path. Cards are cloned from the template so the existing layout can stay. Location and salary filters run in the script, not through Finsweet.
+The first `[dev-target="job-card-item"]` inside `[dev-target="jobs-list"]` is the card template. It is cloned, then removed. `detail-path` on the list overrides the detail page path. The default is `/dev/job-posting-dev`, and the card href is that path plus `?id=`. Location and salary filters run in the script, not through Finsweet. Card text is filled through `fs-cmsfilter-field` (`title`, `location`, `type`, `category`, `salary`, `remote`). The division chip is `[dev-target="division-chip"]`. The worksite row is `[dev-target="remote-role"]` and reads Remote or Hybrid. The results line is `[dev-target="results"]` or `.results`, using `fs-cmsfilter-element="results-count"` and `items-count`. A job is marked new when `publishedAt` is on or after local midnight four days ago.
+
+Salary inputs are annual amounts. Hourly jobs are converted with 2,080 hours. A job with no salary is hidden once a minimum or maximum is set. A single hourly rate renders as `$30/hr`. A range renders as `$30/hr–$36/hr`. Yearly amounts have no unit suffix.
+
+Detail markup. The page URL is `/dev/job-posting-dev?id=123` for as long as that job stays published.
 
 ```html
-<input dev-target="jobs-query" type="search" />
-<input dev-target="jobs-location" type="search" />
-<select dev-target="jobs-category">
-	<option value="">All categories</option>
-</select>
-<input dev-target="jobs-salary-min" type="number" />
-<input dev-target="jobs-salary-max" type="number" />
+<div dev-target="job-highlights" class="job-highlights">
+	<p dev-target="job-location"></p>
+	<p dev-target="job-salary"></p>
+	<p dev-target="job-type"></p>
+	<p dev-target="job-category"></p>
+	<p dev-target="division"></p>
+</div>
+<div dev-target="division-card-career-grp" class="division-details"></div>
+<div dev-target="division-card-syndicate" class="division-details"></div>
+<div dev-target="division-card-fourth-floor" class="division-details"></div>
+<div dev-target="division-card-career-grp-search" class="division-details"></div>
+<div dev-target="division-card-career-grp-events" class="division-details"></div>
+<div dev-target="division-card-career-grp-companies" class="division-details"></div>
 
-<template dev-target="job-card-template">
-	<a dev-target="job-link" href="#">
-		<h3 dev-target="job-title"></h3>
-		<p dev-target="job-location"></p>
-		<p dev-target="job-category"></p>
-		<p dev-target="job-type"></p>
-		<p dev-target="job-salary"></p>
-	</a>
-</template>
-<div dev-target="jobs-list" detail-path="/careers/job"></div>
-```
-
-Detail markup. The page URL is `/careers/job?id=123` for as long as that job stays published.
-
-```html
 <h1 dev-target="job-title"></h1>
-<p dev-target="job-location"></p>
-<p dev-target="job-type"></p>
-<p dev-target="job-category"></p>
-<p dev-target="job-salary"></p>
 <div dev-target="job-description"></div>
 
 <form dev-target="apply-form">
@@ -142,13 +164,24 @@ Detail markup. The page URL is `/careers/job?id=123` for as long as that job sta
 </div>
 ```
 
-Salary inputs are annual amounts. A job with no salary is hidden once a minimum or maximum is set.
+On load, `job-highlights` takes the division color and every other division card gets `hide`.
+
+| Division | Color | Card |
+| --- | --- | --- |
+| Career Group | `#b9373d` | `division-card-career-grp` |
+| Syndicatebleu | `#00abc7` | `division-card-syndicate` |
+| Fourth Floor | `#51afe2` | `division-card-fourth-floor` |
+| Career Group Search | `#bab4ae` | `division-card-career-grp-search` |
+| Career Group Events | `#f62dae` | `division-card-career-grp-events` |
+| CGC Internal | none | `division-card-career-grp-companies` |
+
+The same colors are used for listing chips. CGC Internal has no chip color.
 
 OneTrust must allow jsDelivr and the Vercel API host.
 
 ## Local development and deploy
 
-The Vercel project root is `packages/server`. Vercel Pro is enough. An alias is enough to start. Copy `packages/server/.env.example` to `packages/server/.env` for local API credentials.
+The Vercel project root is `packages/server`. Vercel Pro is enough. An alias is enough to start. Copy `packages/server/.env.example` to `packages/server/.env` for local API credentials. Do not commit `.env`.
 
 | Command | Description |
 | --- | --- |
@@ -157,4 +190,4 @@ The Vercel project root is `packages/server`. Vercel Pro is enough. An alias is 
 | `pnpm --filter @career-group/server deploy` | Production deploy of the API |
 | `pnpm --filter @career-group/frontend build` | Write `packages/frontend/dist` |
 
-`pnpm dev` serves the same Hono app Node uses locally. Production is that app's default export, which Vercel runs as a Hono project.
+`pnpm dev` serves the same Hono app Node uses locally. The API process does not reload on its own, so a server change needs a restart. Production is that app's default export, which Vercel runs as a Hono project. The live API origin is `https://career-group.vercel.app`.

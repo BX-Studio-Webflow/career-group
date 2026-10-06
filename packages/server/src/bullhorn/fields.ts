@@ -19,6 +19,7 @@ export const LIST_FIELDS = [
 	'customText10',
 	'address(city,state,countryName)',
 	'publishedCategory(id,name)',
+	'customText5',
 	'customText20',
 	'customDate1',
 	'dateLastPublished',

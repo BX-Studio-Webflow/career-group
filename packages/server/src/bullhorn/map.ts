@@ -21,6 +21,7 @@ export interface JobSummary {
 	publishedAt: number | null;
 	division: string;
 	remote: boolean;
+	worksite: string;
 }
 
 export interface JobDetail extends JobSummary {
@@ -47,7 +48,7 @@ export function publishedJobsQuery(query: Pick<ListQuery, 'q' | 'location' | 'ca
 
 	const category = query.category?.trim();
 	if (category) {
-		parts.push(`publishedCategory.name:"${escapeLucene(category)}"`);
+		parts.push(`customText5:"${escapeLucene(category)}"`);
 	}
 
 	return parts.join(' AND ');
@@ -77,8 +78,85 @@ function hidesSalary(value: unknown): boolean {
 	return text(value).toLowerCase() === 'yes';
 }
 
-function isRemote(value: unknown): boolean {
-	return text(value).toLowerCase().startsWith('remote');
+function worksiteName(value: unknown): string {
+	const raw = text(value).toLowerCase();
+	if (raw.startsWith('remote')) {
+		return 'Remote';
+	}
+	if (raw.startsWith('hybrid')) {
+		return 'Hybrid';
+	}
+	if (raw.startsWith('onsite') || raw.startsWith('on-site') || raw.startsWith('on site')) {
+		return 'Onsite';
+	}
+
+	return '';
+}
+
+const STATE_ABBREVIATIONS: Record<string, string> = {
+	alabama: 'AL',
+	alaska: 'AK',
+	arizona: 'AZ',
+	arkansas: 'AR',
+	california: 'CA',
+	colorado: 'CO',
+	connecticut: 'CT',
+	delaware: 'DE',
+	'district of columbia': 'DC',
+	florida: 'FL',
+	georgia: 'GA',
+	hawaii: 'HI',
+	idaho: 'ID',
+	illinois: 'IL',
+	indiana: 'IN',
+	iowa: 'IA',
+	kansas: 'KS',
+	kentucky: 'KY',
+	louisiana: 'LA',
+	maine: 'ME',
+	maryland: 'MD',
+	massachusetts: 'MA',
+	michigan: 'MI',
+	minnesota: 'MN',
+	mississippi: 'MS',
+	missouri: 'MO',
+	montana: 'MT',
+	nebraska: 'NE',
+	nevada: 'NV',
+	'new hampshire': 'NH',
+	'new jersey': 'NJ',
+	'new mexico': 'NM',
+	'new york': 'NY',
+	'north carolina': 'NC',
+	'north dakota': 'ND',
+	ohio: 'OH',
+	oklahoma: 'OK',
+	oregon: 'OR',
+	pennsylvania: 'PA',
+	'rhode island': 'RI',
+	'south carolina': 'SC',
+	'south dakota': 'SD',
+	tennessee: 'TN',
+	texas: 'TX',
+	utah: 'UT',
+	vermont: 'VT',
+	virginia: 'VA',
+	washington: 'WA',
+	'west virginia': 'WV',
+	wisconsin: 'WI',
+	wyoming: 'WY',
+};
+
+function stateAbbreviation(value: string): string {
+	if (/^[A-Za-z]{2}$/.test(value)) {
+		return value.toUpperCase();
+	}
+
+	return STATE_ABBREVIATIONS[value.toLowerCase()] ?? value;
+}
+
+function isUnitedStates(value: string): boolean {
+	return /^(united states|united states of america|usa|u\.s\.a\.|u\.s\.|us)$/i.test(value);
 }
 
 const DIVISION_NAMES: Record<string, string> = {
@@ -116,7 +194,14 @@ export function formatLocation(address: unknown): string {
 		return '';
 	}
 
-	return [text(address.city), text(address.state), text(address.countryName)].filter(Boolean).join(', ');
+	const city = text(address.city);
+	const state = stateAbbreviation(text(address.state));
+	const country = text(address.countryName);
+	if (!country || isUnitedStates(country)) {
+		return [city, state].filter(Boolean).join(', ');
+	}
+
+	return [city, state, country].filter(Boolean).join(', ');
 }
 
 export function mapJob(value: unknown): JobDetail | null {
@@ -133,7 +218,9 @@ export function mapJob(value: unknown): JobDetail | null {
 		return null;
 	}
 
-	const category = isRecord(value.publishedCategory) ? text(value.publishedCategory.name) : '';
+	const publishedCategory = isRecord(value.publishedCategory) ? text(value.publishedCategory.name) : '';
+	const category = text(value.customText5) || publishedCategory;
+	const worksite = worksiteName(value.customText10);
 	const publishedAt =
 		typeof value.customDate1 === 'number'
 			? value.customDate1
@@ -167,7 +254,8 @@ export function mapJob(value: unknown): JobDetail | null {
 		salaryUnit,
 		publishedAt,
 		division: divisionName(value.customText20),
-		remote: isRemote(value.customText10),
+		remote: worksite === 'Remote',
+		worksite,
 		description: publicHtml(text(value.publicDescription)),
 	};
 }
