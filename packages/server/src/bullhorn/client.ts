@@ -160,7 +160,8 @@ export class BullhornClient {
 			return null;
 		}
 
-		const job = mapJob(body);
+		const record = isRecord(body) && isRecord(body.data) ? body.data : body;
+		const job = mapJob(record);
 		if (!job) {
 			return null;
 		}

@@ -105,7 +105,7 @@ export function mapJob(value: unknown): JobDetail | null {
 		return null;
 	}
 
-	if (!flag(value.isOpen) || !flag(value.isPublic) || flag(value.isDeleted)) {
+	if (!flag(value.isPublic) || flag(value.isDeleted)) {
 		return null;
 	}
 

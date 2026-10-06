@@ -82,7 +82,7 @@ class FakeBullhorn {
 			if (!this.job) {
 				return new Response('missing', { status: 404 });
 			}
-			return Response.json(this.job);
+			return Response.json({ data: this.job });
 		}
 
 		if (url.pathname.endsWith('/query/Candidate')) {
@@ -163,11 +163,13 @@ afterEach(() => {
 describe('published job query', () => {
 	it('keeps user text inside the title clause', () => {
 		expect(escapeLucene('a+b:c')).toBe('a\\+b\\:c');
-		expect(publishedJobsQuery({ q: 'isPublic:false' })).toBe('isOpen:true AND isDeleted:false AND isPublic:1 AND title:isPublic\\:false*');
+		expect(publishedJobsQuery({ q: 'isPublic:false' })).toBe('isDeleted:false AND isPublic:1 AND title:isPublic\\:false*');
 	});
 
 	it('drops unpublished jobs and strips script tags', () => {
 		expect(mapJob(publishedJob(11, { isPublic: false }))).toBeNull();
+		expect(mapJob(publishedJob(10, { isOpen: false, isPublic: 1 }))?.title).toBe('Accountant');
+		expect(mapJob(publishedJob(10, { isDeleted: true, isPublic: 1 }))).toBeNull();
 		expect(mapJob(publishedJob(10, { isPublic: 1 }))?.title).toBe('Accountant');
 		expect(mapJob(publishedJob(10))?.description).toBe('<p>Hello</p>');
 		expect(mapJob(publishedJob(10))?.location).toBe('Austin, TX, United States');

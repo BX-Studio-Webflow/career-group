@@ -27,4 +27,4 @@ export const LIST_FIELDS = [
 
 export const DETAIL_FIELDS = `${LIST_FIELDS},publicDescription`;
 
-export const PUBLISHED_QUERY = 'isOpen:true AND isDeleted:false AND isPublic:1';
+export const PUBLISHED_QUERY = 'isDeleted:false AND isPublic:1';

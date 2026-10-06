@@ -10,6 +10,7 @@ const LOCATION_SELECTOR = '[dev-target="jobs-location"]';
 const CATEGORY_SELECTOR = '[dev-target="jobs-category"]';
 const SALARY_MIN_SELECTOR = '[dev-target="jobs-salary-min"]';
 const SALARY_MAX_SELECTOR = '[dev-target="jobs-salary-max"]';
+const RESULTS_SELECTOR = '[dev-target="results"], .results';
 
 interface Filters {
 	q: string;
@@ -203,8 +204,53 @@ function fillCategories(jobs: JobSummary[]): void {
 	}
 }
 
+function resultsRoot(): HTMLElement | null {
+	const marked = document.querySelector<HTMLElement>(RESULTS_SELECTOR);
+	if (!marked) {
+		return null;
+	}
+
+	if (marked.querySelector('[fs-cmsfilter-element="results-count"]')) {
+		return marked;
+	}
+
+	const parent = marked.closest<HTMLElement>('.results');
+	if (parent?.querySelector('[fs-cmsfilter-element="results-count"]')) {
+		return parent;
+	}
+
+	return marked;
+}
+
+function fillResults(shown: number, total: number): void {
+	const root = resultsRoot();
+	if (!root) {
+		return;
+	}
+
+	let shownNode = root.querySelector<HTMLElement>('[fs-cmsfilter-element="results-count"]');
+	let totalNode = root.querySelector<HTMLElement>('[fs-cmsfilter-element="items-count"]');
+	if (!shownNode || !totalNode) {
+		const showing = document.createElement('div');
+		showing.textContent = 'Showing';
+		shownNode = document.createElement('div');
+		shownNode.setAttribute('fs-cmsfilter-element', 'results-count');
+		const resultsLabel = document.createElement('div');
+		resultsLabel.textContent = 'Results';
+		const of = document.createElement('div');
+		of.textContent = 'of';
+		totalNode = document.createElement('div');
+		totalNode.setAttribute('fs-cmsfilter-element', 'items-count');
+		root.replaceChildren(showing, shownNode, resultsLabel, of, totalNode);
+	}
+
+	shownNode.textContent = String(shown);
+	totalNode.textContent = String(total);
+}
+
 function render(list: HTMLElement, template: HTMLElement, jobs: JobSummary[]): void {
 	const visible = jobs.filter((job) => matches(job, readFilters()));
+	fillResults(visible.length, jobs.length);
 	list.replaceChildren();
 
 	if (visible.length === 0) {
