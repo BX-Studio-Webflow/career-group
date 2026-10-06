@@ -79,7 +79,7 @@ function matches(job: JobSummary, filters: Filters): boolean {
 }
 
 function detailHref(list: HTMLElement, id: number): string {
-	const path = list.getAttribute('detail-path')?.trim() || window.location.pathname;
+	const path = list.getAttribute('detail-path')?.trim() || '/dev/job-posting-dev';
 	const url = new URL(path, window.location.origin);
 	url.searchParams.set('id', String(id));
 	return `${url.pathname}${url.search}`;
@@ -165,8 +165,14 @@ function fillRemote(root: ParentNode, remote: boolean): void {
 }
 
 function fillCard(card: HTMLElement, job: JobSummary, href: string): void {
-	if (card instanceof HTMLAnchorElement) {
-		card.href = href;
+	const links = card instanceof HTMLAnchorElement ? [card, ...card.querySelectorAll('a')] : [...card.querySelectorAll('a')];
+	for (const link of links) {
+		link.href = href;
+	}
+	if (links.length === 0) {
+		card.addEventListener('click', () => {
+			window.location.assign(href);
+		});
 	}
 
 	setField(card, 'title', job.title);

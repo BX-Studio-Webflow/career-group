@@ -1,6 +1,16 @@
 import { fetchJob, submitApplication } from '../shared/api';
+import { divisionChipColor } from '../shared/divisions';
 import { bindErrorCancel, hideError, showError } from '../shared/errors';
 import { formatSalaryRange } from '../shared/jobs';
+
+const DIVISION_CARDS: Record<string, string> = {
+	'career group': 'division-card-career-grp',
+	syndicatebleu: 'division-card-syndicate',
+	'fourth floor': 'division-card-fourth-floor',
+	'career group search': 'division-card-career-grp-search',
+	'career group events': 'division-card-career-grp-events',
+	'cgc internal': 'division-card-career-grp-companies',
+};
 
 const FORM_SELECTOR = '[dev-target="apply-form"]';
 const DESCRIPTION_SELECTOR = '[dev-target="job-description"]';
@@ -13,17 +23,47 @@ function setText(target: string, value: string): void {
 	}
 }
 
-function fillJob(title: string, location: string, employmentType: string, category: string, salary: string, description: string): void {
+function fillJob(title: string, location: string, employmentType: string, category: string, salary: string, description: string, division: string): void {
 	setText('job-title', title);
 	setText('job-location', location);
 	setText('job-type', employmentType);
 	setText('job-category', category);
 	setText('job-salary', salary);
+	setText('division', division);
+	fillHighlight(division);
+	showDivisionCard(division);
 	document.title = title;
 
 	const descriptionNode = document.querySelector<HTMLElement>(DESCRIPTION_SELECTOR);
 	if (descriptionNode) {
 		descriptionNode.innerHTML = description;
+	}
+}
+
+function fillHighlight(division: string): void {
+	const card = document.querySelector<HTMLElement>('[dev-target="job-highlights"]');
+	if (!card) {
+		return;
+	}
+
+	const color = divisionChipColor(division);
+	if (color) {
+		card.style.backgroundColor = color;
+		return;
+	}
+
+	card.style.removeProperty('background-color');
+}
+
+function divisionCardTarget(card: HTMLElement): string {
+	return card.getAttribute('dev-target') ?? card.getAttribute('dvev-target') ?? '';
+}
+
+function showDivisionCard(division: string): void {
+	const active = DIVISION_CARDS[division.trim().toLowerCase()] ?? '';
+	const cards = document.querySelectorAll<HTMLElement>('[dev-target^="division-card-"], [dvev-target^="division-card-"]');
+	for (const card of cards) {
+		card.classList.toggle('hide', divisionCardTarget(card) !== active);
 	}
 }
 
@@ -98,7 +138,7 @@ if (form || description) {
 					return;
 				}
 
-				fillJob(job.title, job.location, job.employmentType, job.category, formatSalaryRange(job), job.description);
+				fillJob(job.title, job.location, job.employmentType, job.category, formatSalaryRange(job), job.description, job.division?.trim() ?? '');
 				if (form) {
 					bindForm(form, id);
 				}

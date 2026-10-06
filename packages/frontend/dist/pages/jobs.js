@@ -54,7 +54,8 @@ var DIVISION_CHIP_COLORS = {
   "career group": "#b9373d",
   syndicatebleu: "#00abc7",
   "fourth floor": "#51afe2",
-  "career group search": "#bab4ae"
+  "career group search": "#bab4ae",
+  "career group events": "#f62dae"
 };
 function divisionChipColor(division) {
   return DIVISION_CHIP_COLORS[division.trim().toLowerCase()] ?? null;
@@ -192,7 +193,7 @@ function matches(job, filters) {
   return true;
 }
 function detailHref(list2, id) {
-  const path = list2.getAttribute("detail-path")?.trim() || window.location.pathname;
+  const path = list2.getAttribute("detail-path")?.trim() || "/dev/job-posting-dev";
   const url = new URL(path, window.location.origin);
   url.searchParams.set("id", String(id));
   return `${url.pathname}${url.search}`;
@@ -265,8 +266,14 @@ function fillRemote(root, remote) {
   }
 }
 function fillCard(card, job, href) {
-  if (card instanceof HTMLAnchorElement) {
-    card.href = href;
+  const links = card instanceof HTMLAnchorElement ? [card, ...card.querySelectorAll("a")] : [...card.querySelectorAll("a")];
+  for (const link of links) {
+    link.href = href;
+  }
+  if (links.length === 0) {
+    card.addEventListener("click", () => {
+      window.location.assign(href);
+    });
   }
   setField(card, "title", job.title);
   setField(card, "location", job.location);

@@ -53,6 +53,18 @@ async function submitApplication(id, body) {
   };
 }
 
+// shared/divisions.ts
+var DIVISION_CHIP_COLORS = {
+  "career group": "#b9373d",
+  syndicatebleu: "#00abc7",
+  "fourth floor": "#51afe2",
+  "career group search": "#bab4ae",
+  "career group events": "#f62dae"
+};
+function divisionChipColor(division) {
+  return DIVISION_CHIP_COLORS[division.trim().toLowerCase()] ?? null;
+}
+
 // shared/errors.ts
 var ERROR_WRAPPER_SELECTOR = '[dev-target="error-wrapper"]';
 var ERROR_TEXT_SELECTOR = '[dev-target="error-text"]';
@@ -101,6 +113,14 @@ function formatCardSalary(salary, unit) {
 }
 
 // pages/job.ts
+var DIVISION_CARDS = {
+  "career group": "division-card-career-grp",
+  syndicatebleu: "division-card-syndicate",
+  "fourth floor": "division-card-fourth-floor",
+  "career group search": "division-card-career-grp-search",
+  "career group events": "division-card-career-grp-events",
+  "cgc internal": "division-card-career-grp-companies"
+};
 var FORM_SELECTOR = '[dev-target="apply-form"]';
 var DESCRIPTION_SELECTOR = '[dev-target="job-description"]';
 var SUCCESS_SELECTOR = '[dev-target="apply-success"]';
@@ -110,16 +130,41 @@ function setText(target, value) {
     node.textContent = value;
   }
 }
-function fillJob(title, location2, employmentType, category, salary, description2) {
+function fillJob(title, location2, employmentType, category, salary, description2, division) {
   setText("job-title", title);
   setText("job-location", location2);
   setText("job-type", employmentType);
   setText("job-category", category);
   setText("job-salary", salary);
+  setText("division", division);
+  fillHighlight(division);
+  showDivisionCard(division);
   document.title = title;
   const descriptionNode = document.querySelector(DESCRIPTION_SELECTOR);
   if (descriptionNode) {
     descriptionNode.innerHTML = description2;
+  }
+}
+function fillHighlight(division) {
+  const card = document.querySelector('[dev-target="job-highlights"]');
+  if (!card) {
+    return;
+  }
+  const color = divisionChipColor(division);
+  if (color) {
+    card.style.backgroundColor = color;
+    return;
+  }
+  card.style.removeProperty("background-color");
+}
+function divisionCardTarget(card) {
+  return card.getAttribute("dev-target") ?? card.getAttribute("dvev-target") ?? "";
+}
+function showDivisionCard(division) {
+  const active = DIVISION_CARDS[division.trim().toLowerCase()] ?? "";
+  const cards = document.querySelectorAll('[dev-target^="division-card-"], [dvev-target^="division-card-"]');
+  for (const card of cards) {
+    card.classList.toggle("hide", divisionCardTarget(card) !== active);
   }
 }
 function showSuccess(message) {
@@ -181,7 +226,7 @@ if (form || description) {
         showError("This job is no longer available.");
         return;
       }
-      fillJob(job.title, job.location, job.employmentType, job.category, formatSalaryRange(job), job.description);
+      fillJob(job.title, job.location, job.employmentType, job.category, formatSalaryRange(job), job.description, job.division?.trim() ?? "");
       if (form) {
         bindForm(form, id);
       }
