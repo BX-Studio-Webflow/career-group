@@ -81,6 +81,25 @@ function isRemote(value: unknown): boolean {
 	return text(value).toLowerCase().startsWith('remote');
 }
 
+const DIVISION_NAMES: Record<string, string> = {
+	cg: 'Career Group',
+	sb: 'Syndicatebleu',
+	ff: 'Fourth Floor',
+	cgs: 'Career Group Search',
+	cgc: 'CGC Internal',
+	event: 'Career Group Events',
+	events: 'Career Group Events',
+};
+
+function divisionName(value: unknown): string {
+	const code = text(value);
+	if (!code) {
+		return '';
+	}
+
+	return DIVISION_NAMES[code.toLowerCase()] ?? code;
+}
+
 export function publicHtml(value: string): string {
 	return value
 		.replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, '')
@@ -137,7 +156,7 @@ export function mapJob(value: unknown): JobDetail | null {
 		salaryMax,
 		salaryUnit: text(value.salaryUnit),
 		publishedAt,
-		division: text(value.correlatedCustomTextBlock1),
+		division: divisionName(value.customText20),
 		remote: isRemote(value.customText10),
 		description: publicHtml(text(value.publicDescription)),
 	};
