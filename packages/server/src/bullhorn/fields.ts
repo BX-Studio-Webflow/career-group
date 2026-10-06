@@ -13,6 +13,8 @@ export const LIST_FIELDS = [
 	'salaryUnit',
 	'customFloat1',
 	'customFloat2',
+	'customFloat3',
+	'payRate',
 	'customText12',
 	'customText10',
 	'address(city,state,countryName)',

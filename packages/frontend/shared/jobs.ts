@@ -38,7 +38,7 @@ export function formatSalaryRange(job: Pick<JobSummary, 'salary' | 'salaryMin' |
 		return `${formatCardSalary(min, job.salaryUnit)}–${formatCardSalary(max, job.salaryUnit)}`;
 	}
 
-	return formatSalary(max ?? min, job.salaryUnit);
+	return formatCardSalary(max ?? min, job.salaryUnit);
 }
 
 export function formatCardSalary(salary: number | null, unit: string): string {

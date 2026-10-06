@@ -185,6 +185,12 @@ describe('published job query', () => {
 			),
 		).toMatchObject({ title: 'Public Accountant', salaryMin: 90000, salaryMax: 110000, salary: 110000, remote: true });
 		expect(mapJob(publishedJob(10, { customText12: 'Yes', customFloat2: 110000 }))?.salary).toBeNull();
+		expect(mapJob(publishedJob(10, { payRate: 30, customFloat3: 30, salary: 0, salaryUnit: '' }))).toMatchObject({
+			salary: 30,
+			salaryMin: 30,
+			salaryMax: 30,
+			salaryUnit: 'hour',
+		});
 		expect(mapJob(publishedJob(10, { customText20: 'SB' }))?.division).toBe('Syndicatebleu');
 		expect(mapJob(publishedJob(10, { customText20: 'Event' }))?.division).toBe('Career Group Events');
 	});

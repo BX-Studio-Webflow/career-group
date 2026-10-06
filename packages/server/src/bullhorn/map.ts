@@ -141,8 +141,18 @@ export function mapJob(value: unknown): JobDetail | null {
 				? value.dateLastPublished
 				: null;
 	const hidden = hidesSalary(value.customText12);
-	const salaryMin = hidden ? null : salaryAmount(value.customFloat1);
-	const salaryMax = hidden ? null : salaryAmount(value.customFloat2);
+	let salaryMin = hidden ? null : salaryAmount(value.customFloat1);
+	let salaryMax = hidden ? null : salaryAmount(value.customFloat2);
+	let salaryUnit = text(value.salaryUnit);
+	if (!hidden && salaryMin == null && salaryMax == null) {
+		const hourlyMin = salaryAmount(value.payRate);
+		const hourlyMax = salaryAmount(value.customFloat3);
+		if (hourlyMin != null || hourlyMax != null) {
+			salaryMin = hourlyMin;
+			salaryMax = hourlyMax;
+			salaryUnit = 'hour';
+		}
+	}
 	const salary = salaryMax ?? salaryMin ?? (hidden ? null : salaryAmount(value.salary));
 
 	return {
@@ -154,7 +164,7 @@ export function mapJob(value: unknown): JobDetail | null {
 		salary,
 		salaryMin,
 		salaryMax,
-		salaryUnit: text(value.salaryUnit),
+		salaryUnit,
 		publishedAt,
 		division: divisionName(value.customText20),
 		remote: isRemote(value.customText10),

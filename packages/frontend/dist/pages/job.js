@@ -76,24 +76,13 @@ function bindErrorCancel() {
 }
 
 // shared/jobs.ts
-function formatSalary(salary, unit) {
-  if (salary == null) {
-    return "";
-  }
-  const amount = new Intl.NumberFormat("en-US", {
-    style: "currency",
-    currency: "USD",
-    maximumFractionDigits: 0
-  }).format(salary);
-  return unit ? `${amount} ${unit}` : amount;
-}
 function formatSalaryRange(job) {
   const min = job.salaryMin ?? null;
   const max = job.salaryMax ?? job.salary;
   if (min != null && max != null && min !== max) {
     return `${formatCardSalary(min, job.salaryUnit)}\u2013${formatCardSalary(max, job.salaryUnit)}`;
   }
-  return formatSalary(max ?? min, job.salaryUnit);
+  return formatCardSalary(max ?? min, job.salaryUnit);
 }
 function formatCardSalary(salary, unit) {
   if (salary == null) {
