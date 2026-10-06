@@ -157,14 +157,11 @@ function fillHighlight(division) {
   }
   card.style.removeProperty("background-color");
 }
-function divisionCardTarget(card) {
-  return card.getAttribute("dev-target") ?? card.getAttribute("dvev-target") ?? "";
-}
 function showDivisionCard(division) {
   const active = DIVISION_CARDS[division.trim().toLowerCase()] ?? "";
-  const cards = document.querySelectorAll('[dev-target^="division-card-"], [dvev-target^="division-card-"]');
+  const cards = document.querySelectorAll('[dev-target^="division-card-"]');
   for (const card of cards) {
-    card.classList.toggle("hide", divisionCardTarget(card) !== active);
+    card.classList.toggle("hide", card.getAttribute("dev-target") !== active);
   }
 }
 function showSuccess(message) {

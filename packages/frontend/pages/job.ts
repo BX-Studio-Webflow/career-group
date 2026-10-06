@@ -55,15 +55,11 @@ function fillHighlight(division: string): void {
 	card.style.removeProperty('background-color');
 }
 
-function divisionCardTarget(card: HTMLElement): string {
-	return card.getAttribute('dev-target') ?? card.getAttribute('dvev-target') ?? '';
-}
-
 function showDivisionCard(division: string): void {
 	const active = DIVISION_CARDS[division.trim().toLowerCase()] ?? '';
-	const cards = document.querySelectorAll<HTMLElement>('[dev-target^="division-card-"], [dvev-target^="division-card-"]');
+	const cards = document.querySelectorAll<HTMLElement>('[dev-target^="division-card-"]');
 	for (const card of cards) {
-		card.classList.toggle('hide', divisionCardTarget(card) !== active);
+		card.classList.toggle('hide', card.getAttribute('dev-target') !== active);
 	}
 }
 
