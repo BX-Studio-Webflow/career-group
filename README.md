@@ -81,11 +81,11 @@ Load `jobs.js` on the listing page and `job.js` on the detail page. Local dev:
 <script type="module" src="http://localhost:3000/pages/jobs.js"></script>
 ```
 
-Production loads the built files from jsDelivr at a pinned commit. Set the API origin on the page so the alias can change without a rebuild. `CAREERS_API_ORIGIN` at build time is the fallback.
+Production loads the built files from jsDelivr at a pinned commit. The scripts call `https://career-group.vercel.app`. Set `window.CAREERS_API_ORIGIN` on the page only when that host should change without a rebuild.
 
 ```html
 <script>
-	window.CAREERS_API_ORIGIN = 'https://<vercel-app>.vercel.app';
+	window.CAREERS_API_ORIGIN = 'https://career-group.vercel.app';
 </script>
 <script
 	defer

@@ -482,8 +482,12 @@ function mapSearch(body: unknown, query: ListQuery): JobList {
 			employmentType: job.employmentType,
 			category: job.category,
 			salary: job.salary,
+			salaryMin: job.salaryMin,
+			salaryMax: job.salaryMax,
 			salaryUnit: job.salaryUnit,
 			publishedAt: job.publishedAt,
+			division: job.division,
+			remote: job.remote,
 		})),
 	};
 }

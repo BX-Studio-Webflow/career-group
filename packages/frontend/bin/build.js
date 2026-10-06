@@ -7,7 +7,7 @@ const PRODUCTION = process.env.NODE_ENV === 'production';
 const LIVE_RELOAD = !PRODUCTION;
 const SERVE_PORT = 3000;
 const SERVE_ORIGIN = `http://localhost:${SERVE_PORT}`;
-const API_ORIGIN = process.env.CAREERS_API_ORIGIN || (PRODUCTION ? '' : 'http://localhost:8787');
+const API_ORIGIN = process.env.CAREERS_API_ORIGIN || (PRODUCTION ? 'https://career-group.vercel.app' : 'http://localhost:8787');
 
 function getPageEntryPoints() {
 	const entryPoints = {};

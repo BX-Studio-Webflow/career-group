@@ -108,7 +108,9 @@ function setField(root: ParentNode, field: string, value: string): void {
 
 function fillSalary(root: ParentNode, job: JobSummary): void {
 	const block = root.querySelector<HTMLElement>('.salary');
-	const amount = formatCardSalary(job.salary, job.salaryUnit);
+	const minAmount = job.salaryMin ?? null;
+	const maxAmount = job.salaryMax ?? job.salary;
+	const ranged = minAmount != null && maxAmount != null && minAmount !== maxAmount;
 	const max = block?.querySelector<HTMLElement>('[fs-cmsfilter-field="salary"]') ?? null;
 	const paragraphs = block ? [...block.querySelectorAll('p')] : [];
 	const divider = paragraphs.find((paragraph) => paragraph.hasAttribute('salary-divider') || paragraph.textContent?.trim() === '-') ?? null;
@@ -116,12 +118,15 @@ function fillSalary(root: ParentNode, job: JobSummary): void {
 		paragraphs.find((paragraph) => paragraph !== max && paragraph !== divider && !paragraph.classList.contains('hidden-filter')) ?? null;
 
 	if (max) {
-		max.textContent = amount;
+		max.textContent = formatCardSalary(ranged ? maxAmount : (maxAmount ?? minAmount), job.salaryUnit);
 	}
-	setShown(min, false);
-	setShown(divider, false);
-	setShown(block, Boolean(amount));
-	setShown(root.querySelector('[dev-target="salary-max-pre-div"]'), Boolean(amount));
+	if (min) {
+		min.textContent = ranged ? formatCardSalary(minAmount, job.salaryUnit) : '';
+	}
+	setShown(min, ranged);
+	setShown(divider, ranged);
+	setShown(block, maxAmount != null || minAmount != null);
+	setShown(root.querySelector('[dev-target="salary-max-pre-div"]'), maxAmount != null || minAmount != null);
 }
 
 function fillDivision(root: ParentNode, division: string): void {

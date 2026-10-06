@@ -1,6 +1,6 @@
 import { fetchJob, submitApplication } from '../shared/api';
 import { bindErrorCancel, hideError, showError } from '../shared/errors';
-import { formatSalary } from '../shared/jobs';
+import { formatSalaryRange } from '../shared/jobs';
 
 const FORM_SELECTOR = '[dev-target="apply-form"]';
 const DESCRIPTION_SELECTOR = '[dev-target="job-description"]';
@@ -98,7 +98,7 @@ if (form || description) {
 					return;
 				}
 
-				fillJob(job.title, job.location, job.employmentType, job.category, formatSalary(job.salary, job.salaryUnit), job.description);
+				fillJob(job.title, job.location, job.employmentType, job.category, formatSalaryRange(job), job.description);
 				if (form) {
 					bindForm(form, id);
 				}

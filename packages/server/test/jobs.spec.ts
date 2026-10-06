@@ -163,13 +163,26 @@ afterEach(() => {
 describe('published job query', () => {
 	it('keeps user text inside the title clause', () => {
 		expect(escapeLucene('a+b:c')).toBe('a\\+b\\:c');
-		expect(publishedJobsQuery({ q: 'isPublic:false' })).toBe('isOpen:true AND isDeleted:false AND isPublic:true AND title:isPublic\\:false*');
+		expect(publishedJobsQuery({ q: 'isPublic:false' })).toBe('isOpen:true AND isDeleted:false AND isPublic:1 AND title:isPublic\\:false*');
 	});
 
 	it('drops unpublished jobs and strips script tags', () => {
 		expect(mapJob(publishedJob(11, { isPublic: false }))).toBeNull();
+		expect(mapJob(publishedJob(10, { isPublic: 1 }))?.title).toBe('Accountant');
 		expect(mapJob(publishedJob(10))?.description).toBe('<p>Hello</p>');
 		expect(mapJob(publishedJob(10))?.location).toBe('Austin, TX, United States');
+		expect(
+			mapJob(
+				publishedJob(10, {
+					customText15: 'Public Accountant',
+					customFloat1: 90000,
+					customFloat2: 110000,
+					customText10: 'Remote(voluntary)',
+					customText12: 'No',
+				}),
+			),
+		).toMatchObject({ title: 'Public Accountant', salaryMin: 90000, salaryMax: 110000, salary: 110000, remote: true });
+		expect(mapJob(publishedJob(10, { customText12: 'Yes', customFloat2: 110000 }))?.salary).toBeNull();
 	});
 });
 
@@ -183,7 +196,7 @@ describe('GET /api/jobs', () => {
 		const body = (await first.json()) as { jobs: { title: string }[] };
 		expect(body.jobs.map((job) => job.title)).toEqual(['Accountant']);
 		expect(fake.calls.filter((call) => call.startsWith('GET /oauth/authorize'))).toHaveLength(1);
-		expect(fake.urls.some((url) => decodeURIComponent(url).includes('isPublic:true'))).toBe(true);
+		expect(fake.urls.some((url) => decodeURIComponent(url).includes('isPublic:1'))).toBe(true);
 		expect(second.status).toBe(200);
 	});
 

@@ -5,6 +5,8 @@ export interface JobSummary {
 	employmentType: string;
 	category: string;
 	salary: number | null;
+	salaryMin?: number | null;
+	salaryMax?: number | null;
 	salaryUnit: string;
 	publishedAt: number | null;
 	division?: string;
@@ -27,6 +29,16 @@ export function formatSalary(salary: number | null, unit: string): string {
 	}).format(salary);
 
 	return unit ? `${amount} ${unit}` : amount;
+}
+
+export function formatSalaryRange(job: Pick<JobSummary, 'salary' | 'salaryMin' | 'salaryMax' | 'salaryUnit'>): string {
+	const min = job.salaryMin ?? null;
+	const max = job.salaryMax ?? job.salary;
+	if (min != null && max != null && min !== max) {
+		return `${formatCardSalary(min, job.salaryUnit)}–${formatCardSalary(max, job.salaryUnit)}`;
+	}
+
+	return formatSalary(max ?? min, job.salaryUnit);
 }
 
 export function formatCardSalary(salary: number | null, unit: string): string {

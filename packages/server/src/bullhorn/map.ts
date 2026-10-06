@@ -15,8 +15,12 @@ export interface JobSummary {
 	employmentType: string;
 	category: string;
 	salary: number | null;
+	salaryMin: number | null;
+	salaryMax: number | null;
 	salaryUnit: string;
 	publishedAt: number | null;
+	division: string;
+	remote: boolean;
 }
 
 export interface JobDetail extends JobSummary {
@@ -62,11 +66,19 @@ function flag(value: unknown): boolean {
 }
 
 function salaryAmount(value: unknown): number | null {
-	if (typeof value !== 'number' || !Number.isFinite(value) || value === 0) {
+	if (typeof value !== 'number' || !Number.isFinite(value) || value <= 0) {
 		return null;
 	}
 
 	return value;
+}
+
+function hidesSalary(value: unknown): boolean {
+	return text(value).toLowerCase() === 'yes';
+}
+
+function isRemote(value: unknown): boolean {
+	return text(value).toLowerCase().startsWith('remote');
 }
 
 export function publicHtml(value: string): string {
@@ -97,13 +109,22 @@ export function mapJob(value: unknown): JobDetail | null {
 		return null;
 	}
 
-	const title = text(value.title);
+	const title = text(value.customText15) || text(value.title);
 	if (!title) {
 		return null;
 	}
 
 	const category = isRecord(value.publishedCategory) ? text(value.publishedCategory.name) : '';
-	const publishedAt = typeof value.dateLastPublished === 'number' ? value.dateLastPublished : null;
+	const publishedAt =
+		typeof value.customDate1 === 'number'
+			? value.customDate1
+			: typeof value.dateLastPublished === 'number'
+				? value.dateLastPublished
+				: null;
+	const hidden = hidesSalary(value.customText12);
+	const salaryMin = hidden ? null : salaryAmount(value.customFloat1);
+	const salaryMax = hidden ? null : salaryAmount(value.customFloat2);
+	const salary = salaryMax ?? salaryMin ?? (hidden ? null : salaryAmount(value.salary));
 
 	return {
 		id: value.id,
@@ -111,9 +132,13 @@ export function mapJob(value: unknown): JobDetail | null {
 		location: formatLocation(value.address),
 		employmentType: text(value.employmentType),
 		category,
-		salary: salaryAmount(value.salary),
+		salary,
+		salaryMin,
+		salaryMax,
 		salaryUnit: text(value.salaryUnit),
 		publishedAt,
+		division: text(value.correlatedCustomTextBlock1),
+		remote: isRemote(value.customText10),
 		description: publicHtml(text(value.publicDescription)),
 	};
 }
