@@ -24,7 +24,7 @@ flowchart LR
   vercel -->|"OAuth session"| bullhorn
 ```
 
-A job is listed when Publishing Status is on and the record is not deleted (`isDeleted:false AND isPublic:1`). Search uses `isPublic:1`. `isPublic:true` matches nothing in this corp. Closed jobs stay on the list when the public flag is still on.
+A job is listed when Publishing Status is on, the record is not deleted (`isDeleted:false AND isPublic:1`), and its publish date is not in the future. The publish date is Published Date (`customDate1`), or `dateLastPublished` when that field is empty. A job with no date still lists. Search uses `isPublic:1`. `isPublic:true` matches nothing in this corp. Closed jobs stay on the list when the public flag is still on.
 
 An application becomes one Candidate per email and an internal JobSubmission with status `Web Response`. Applying to ten jobs creates one candidate and ten submissions. A second application to the same job does not create another submission.
 

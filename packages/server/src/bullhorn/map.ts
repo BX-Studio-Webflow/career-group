@@ -227,6 +227,9 @@ export function mapJob(value: unknown): JobDetail | null {
 			: typeof value.dateLastPublished === 'number'
 				? value.dateLastPublished
 				: null;
+	if (publishedAt != null && publishedAt > Date.now()) {
+		return null;
+	}
 	const hidden = hidesSalary(value.customText12);
 	let salaryMin = hidden ? null : salaryAmount(value.customFloat1);
 	let salaryMax = hidden ? null : salaryAmount(value.customFloat2);
