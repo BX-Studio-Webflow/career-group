@@ -1,0 +1,12 @@
+[dev-target='accordion-item']:not(.is-active) [dev-target='accordion-body'] {
+	display: none;
+}
+
+[dev-target='accordion-item'] .caret {
+	transform: rotate(0deg);
+	transition: transform 0.2s ease;
+}
+
+[dev-target='accordion-item'].is-active .caret {
+	transform: rotate(180deg);
+}

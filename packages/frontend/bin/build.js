@@ -9,26 +9,27 @@ const SERVE_PORT = 3000;
 const SERVE_ORIGIN = `http://localhost:${SERVE_PORT}`;
 const API_ORIGIN = process.env.CAREERS_API_ORIGIN || (PRODUCTION ? 'https://career-group.vercel.app' : 'http://localhost:8787');
 
-function getPageEntryPoints() {
-	const entryPoints = {};
-	const roots = [{ dir: 'pages', keyPrefix: 'pages' }];
+function addEntries(entryPoints, dir, keyPrefix, extension) {
+	if (!existsSync(dir)) {
+		return;
+	}
 
-	for (const { dir, keyPrefix } of roots) {
-		if (!existsSync(dir)) {
+	const files = readdirSync(dir, { withFileTypes: true });
+	for (const file of files) {
+		if (!file.isFile() || !file.name.endsWith(extension)) {
 			continue;
 		}
 
-		const files = readdirSync(dir, { withFileTypes: true });
-		for (const file of files) {
-			if (!file.isFile() || !file.name.endsWith('.ts')) {
-				continue;
-			}
-
-			const name = file.name.slice(0, -'.ts'.length);
-			entryPoints[`${keyPrefix}/${name}`] = join(dir, file.name);
-		}
+		const name = file.name.slice(0, -extension.length);
+		const key = keyPrefix ? `${keyPrefix}/${name}` : name;
+		entryPoints[key] = join(dir, file.name);
 	}
+}
 
+function getPageEntryPoints() {
+	const entryPoints = {};
+	addEntries(entryPoints, 'pages', 'pages', '.ts');
+	addEntries(entryPoints, 'shared', '', '.css');
 	return entryPoints;
 }
 
@@ -84,7 +85,9 @@ function logServedFiles() {
 			const paths = file.split(sep);
 			paths[0] = SERVE_ORIGIN;
 			const location = paths.join('/');
-			const tag = `<script type="module" src="${location}"></script>`;
+			const tag = file.endsWith('.css')
+				? `<link rel="stylesheet" href="${location}">`
+				: `<script type="module" src="${location}"></script>`;
 
 			return {
 				'File Location': location,

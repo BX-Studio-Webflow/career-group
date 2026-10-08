@@ -1,3 +1,4 @@
+import { Accordion } from '../shared/accordion';
 import { fetchJobsNear, fetchPublishedJobs, readApiOrigin } from '../shared/api';
 import { divisionChipColor } from '../shared/divisions';
 import { bindErrorCancel, hideError, showError } from '../shared/errors';
@@ -168,6 +169,18 @@ function optionId(group: string, label: string): string {
 		.replace(/[^a-z0-9]+/g, '-')
 		.replace(/^-|-$/g, '');
 	return `${group}-${slug}`;
+}
+
+function choiceInputs(selector: string, options: FilterChoice[], group: string): HTMLInputElement[] {
+	if (document.querySelector(selector)) {
+		return fillChoices(selector, options, group);
+	}
+
+	const inputs = [...document.querySelectorAll<HTMLInputElement>(`input[name="${group}"]`)];
+	if (inputs.length === 0) {
+		logEarly(`${group} option template is missing.`);
+	}
+	return inputs;
 }
 
 function fillChoices(selector: string, options: FilterChoice[], group: string): HTMLInputElement[] {
@@ -511,10 +524,16 @@ function start(): void {
 	});
 	document.querySelector('[fs-cmsfilter-element="filters"]')?.removeAttribute('fs-cmsfilter-element');
 
-	divisionInputs = fillChoices(DIVISION_SELECTOR, DIVISION_OPTIONS, 'division');
-	employmentInputs = fillChoices(EMPLOYMENT_SELECTOR, EMPLOYMENT_OPTIONS, 'employment-type');
-	salaryInputs = fillChoices(SALARY_SELECTOR, SALARY_OPTIONS, 'salary');
-	functionInputs = fillChoices(FUNCTION_SELECTOR, JOB_FUNCTION_OPTIONS, 'job-function');
+	divisionInputs = choiceInputs(DIVISION_SELECTOR, DIVISION_OPTIONS, 'division');
+	employmentInputs = choiceInputs(EMPLOYMENT_SELECTOR, EMPLOYMENT_OPTIONS, 'employment-type');
+	salaryInputs = choiceInputs(SALARY_SELECTOR, SALARY_OPTIONS, 'salary');
+	functionInputs = choiceInputs(FUNCTION_SELECTOR, JOB_FUNCTION_OPTIONS, 'job-function');
+	new Accordion({
+		wrapper: 'accordion-wrapper',
+		item: 'accordion-item',
+		header: 'accordion-header',
+		body: 'accordion-body',
+	}).mount();
 	if (!document.querySelector(`${REMOTE_SELECTOR} input`)) {
 		logEarly('Remote option is missing.');
 	}
