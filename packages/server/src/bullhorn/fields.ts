@@ -17,7 +17,7 @@ export const LIST_FIELDS = [
 	'payRate',
 	'customText12',
 	'customText10',
-	'address(city,state,countryName)',
+	'address(city,state,zip,countryName)',
 	'publishedCategory(id,name)',
 	'customText5',
 	'customText20',

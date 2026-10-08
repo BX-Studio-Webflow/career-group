@@ -30,6 +30,24 @@ interface JobListResponse {
 	jobs?: JobSummary[];
 }
 
+export async function fetchJobsNear(near: string): Promise<JobSummary[] | null> {
+	const url = apiUrl(`/api/jobs?near=${encodeURIComponent(near)}`);
+	if (!url) {
+		throw new Error('missing_api_origin');
+	}
+
+	const response = await fetch(url, { headers: { Accept: 'application/json' } });
+	if (response.status === 422) {
+		return null;
+	}
+	if (!response.ok) {
+		throw new Error('jobs_failed');
+	}
+
+	const body = (await response.json()) as JobListResponse;
+	return body.jobs ?? [];
+}
+
 export async function fetchPublishedJobs(): Promise<JobSummary[]> {
 	const jobs: JobSummary[] = [];
 	const seen = new Set<number>();

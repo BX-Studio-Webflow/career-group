@@ -35,11 +35,13 @@ The detail link is `?id=` on one Webflow page, by default `/dev/job-posting-dev?
 | Route | Method | Purpose |
 | --- | --- | --- |
 | `/health` | `GET` | `{ "ok": true, "status": "ok" }` |
-| `/api/jobs` | `GET` | Published jobs. Optional `q`, `location`, `category`, `start`, `count`. |
+| `/api/jobs` | `GET` | Published jobs. Optional `q`, `location`, `category`, `near`, `start`, `count`. |
 | `/api/jobs/:id` | `GET` | One published job, including the public description. `404` when it is not published. |
 | `/api/jobs/:id/apply` | `POST` | Multipart application. Not cached. |
 
 `count` is 1–200, default 50. `start` is 0–10,000. The listing script requests pages of 200 and stops at 500 jobs.
+
+`near` is a city and state, such as `Austin, TX`. The API geocodes it with Google and returns published jobs within 50 miles. The radius is fixed. `GOOGLE_MAPS_API_KEY` stays on the server. An unknown place is `422` with `unresolved_location`. `location` is still an exact city match.
 
 Apply fields are `firstName`, `lastName`, `email`, `phone`, and an optional `resume` (`pdf`, `doc`, or `docx`, 4 MB). The 4 MB cap stays under Vercel's request body limit. A missing resume is fine. If the resume upload fails after the submission is created, the response is still `{ "ok": true, "resumeAttached": false }`.
 
@@ -72,6 +74,7 @@ BULLHORN_REDIRECT_URI=http://www.bullhorn.com
 BULLHORN_SUBMISSION_STATUS=Web Response
 BULLHORN_CANDIDATE_STATUS=New Lead
 CORS_ORIGINS=https://www.careergroupcompanies.com,https://careergroupcompanies.com
+GOOGLE_MAPS_API_KEY=
 ```
 
 `BULLHORN_CANDIDATE_STATUS` is sent only when it is set. This corp uses `New Lead`.
@@ -124,7 +127,11 @@ Production loads the built files from jsDelivr at a pinned commit. The scripts c
 ></script>
 ```
 
-The first `[dev-target="job-card-item"]` inside `[dev-target="jobs-list"]` is the card template. It is cloned, then removed. `detail-path` on the list overrides the detail page path. The default is `/dev/job-posting-dev`, and the card href is that path plus `?id=`. Location and salary filters run in the script, not through Finsweet. Card text is filled through `fs-cmsfilter-field` (`title`, `location`, `type`, `category`, `salary`, `remote`). The division chip is `[dev-target="division-chip"]`. The worksite row is `[dev-target="remote-role"]` and reads Remote or Hybrid. The results line is `[dev-target="results"]` or `.results`, using `fs-cmsfilter-element="results-count"` and `items-count`. A job is marked new when `publishedAt` is on or after local midnight four days ago.
+The first `[dev-target="job-card-item"]` inside `[dev-target="jobs-list"]` is the card template. It is cloned, then removed. `detail-path` on the list overrides the detail page path. The default is `/dev/job-posting-dev`, and the card href is that path plus `?id=`. Filters run in the script. The location control stays the Finsweet combobox and `#Locations` select. A typed or chosen place calls `near` and keeps jobs within 50 miles. An unknown place shows a message and leaves the current list in place.
+
+Checkbox and radio rows are cloned from one wrapper each: `search-input`, `division-checkbox-wrapper`, `remote-only-checkbox-wrapper`, `employment-type-checkbox-wrapper`, `salary-radio-wrapper`, `job-function-checkbox-wrapper`, and `clear`. Checked values in one group match any of those values. Groups combine. Salary radios are annual minimums from $40,000 to $200,000. Clear Filters restores the loaded list.
+
+Card text is filled through `fs-cmsfilter-field` (`title`, `location`, `type`, `category`, `salary`, `remote`). The division chip is `[dev-target="division-chip"]`. The worksite row is `[dev-target="remote-role"]` and reads Remote or Hybrid. The results line is `[dev-target="results"]` or `.results`, using `fs-cmsfilter-element="results-count"` and `items-count`. A job is marked new when `publishedAt` is on or after local midnight four days ago.
 
 Salary inputs are annual amounts. Hourly jobs are converted with 2,080 hours. A job with no salary is hidden once a minimum or maximum is set. A single hourly rate renders as `$30/hr`. A range renders as `$30/hr–$36/hr`. Yearly amounts have no unit suffix.
 

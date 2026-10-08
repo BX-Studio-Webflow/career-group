@@ -1,11 +1,12 @@
 import { request as httpRequest } from 'node:http';
 import { request as httpsRequest } from 'node:https';
 
+import { geocode, UnresolvedPlaceError, withinRadius } from '../geo.js';
 import type { ApplicationInput, ResumeFile } from '../validate.js';
 import type { BullhornConfig } from './config.js';
 import { DETAIL_FIELDS, LIST_FIELDS } from './fields.js';
 import { quoteWhere } from './ids.js';
-import { type JobDetail, type JobSummary, type ListQuery, mapJob, publishedJobsQuery } from './map.js';
+import { geocodePlace, type JobDetail, type JobSummary, type ListQuery, mapJob, publishedJobsQuery, toJobSummary } from './map.js';
 
 export class BullhornHttpError extends Error {
 	readonly status: number;
@@ -145,6 +146,70 @@ export class BullhornClient {
 		};
 		const body = await this.readJson('job_search', 'search/JobOrder', params);
 		const value = mapSearch(body, query);
+		this.lists.set(key, { expiresAt: Date.now() + CACHE_MS, value });
+		return value;
+	}
+
+	async searchNear(near: string): Promise<JobList> {
+		const key = `near:${near.trim().toLowerCase()}`;
+		const hit = this.lists.get(key);
+		if (hit && hit.expiresAt > Date.now()) {
+			return hit.value;
+		}
+
+		const origin = await geocode(near);
+		if (!origin) {
+			throw new UnresolvedPlaceError();
+		}
+
+		const matches: JobSummary[] = [];
+		let considered = 0;
+		let start = 0;
+		let total = Number.POSITIVE_INFINITY;
+		while (considered < 500 && start < total) {
+			const body = await this.readJson('job_search', 'search/JobOrder', {
+				query: publishedJobsQuery({}),
+				fields: LIST_FIELDS,
+				count: '200',
+				start: String(start),
+				sort: '-dateLastPublished',
+			});
+			if (!isRecord(body) || !Array.isArray(body.data)) {
+				throw new BullhornHttpError(502, 'Bullhorn job search was incomplete.');
+			}
+
+			const rows = body.data;
+			total = typeof body.total === 'number' ? body.total : start + rows.length;
+			if (rows.length === 0) {
+				break;
+			}
+
+			for (const row of rows) {
+				const job = mapJob(row);
+				if (!job) {
+					continue;
+				}
+
+				considered += 1;
+				const place = geocodePlace(isRecord(row) ? row.address : null);
+				if (place) {
+					const point = await geocode(place);
+					if (point && withinRadius(origin, point)) {
+						matches.push(toJobSummary(job));
+					}
+				}
+				if (considered >= 500) {
+					break;
+				}
+			}
+
+			start += rows.length;
+			if (start >= total) {
+				break;
+			}
+		}
+
+		const value = { total: matches.length, start: 0, count: matches.length, jobs: matches };
 		this.lists.set(key, { expiresAt: Date.now() + CACHE_MS, value });
 		return value;
 	}
@@ -476,21 +541,7 @@ function mapSearch(body: unknown, query: ListQuery): JobList {
 		total,
 		start: query.start,
 		count: jobs.length,
-		jobs: jobs.map((job) => ({
-			id: job.id,
-			title: job.title,
-			location: job.location,
-			employmentType: job.employmentType,
-			category: job.category,
-			salary: job.salary,
-			salaryMin: job.salaryMin,
-			salaryMax: job.salaryMax,
-			salaryUnit: job.salaryUnit,
-			publishedAt: job.publishedAt,
-			division: job.division,
-			remote: job.remote,
-			worksite: job.worksite,
-		})),
+		jobs: jobs.map((job) => toJobSummary(job)),
 	};
 }
 

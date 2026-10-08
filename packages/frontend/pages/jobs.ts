@@ -1,23 +1,51 @@
-import { fetchPublishedJobs, readApiOrigin } from '../shared/api';
+import { fetchJobsNear, fetchPublishedJobs, readApiOrigin } from '../shared/api';
 import { divisionChipColor } from '../shared/divisions';
 import { bindErrorCancel, showError } from '../shared/errors';
+import {
+	DIVISION_OPTIONS,
+	EMPLOYMENT_OPTIONS,
+	type FilterChoice,
+	JOB_FUNCTION_OPTIONS,
+	matchesChoice,
+	matchesEmployment,
+	SALARY_OPTIONS,
+} from '../shared/filters';
 import { annualSalary, formatCardSalary, formatPostedDate, isNewJob, type JobSummary } from '../shared/jobs';
 
 const LIST_SELECTOR = '[dev-target="jobs-list"]';
 const CARD_SELECTOR = '[dev-target="job-card-item"]';
 const QUERY_SELECTOR = '[dev-target="jobs-query"]';
-const LOCATION_SELECTOR = '[dev-target="jobs-location"]';
+const SEARCH_SELECTOR = '[dev-target="search-input"]';
+const LOCATION_SELECTOR = '[fs-combobox-element="text-input"], [dev-target="jobs-location"]';
 const CATEGORY_SELECTOR = '[dev-target="jobs-category"]';
 const SALARY_MIN_SELECTOR = '[dev-target="jobs-salary-min"]';
 const SALARY_MAX_SELECTOR = '[dev-target="jobs-salary-max"]';
 const RESULTS_SELECTOR = '[dev-target="results"], .results';
+const DIVISION_SELECTOR = '[dev-target="division-checkbox-wrapper"]';
+const REMOTE_SELECTOR = '[dev-target="remote-only-checkbox-wrapper"]';
+const EMPLOYMENT_SELECTOR = '[dev-target="employment-type-checkbox-wrapper"]';
+const SALARY_SELECTOR = '[dev-target="salary-radio-wrapper"]';
+const FUNCTION_SELECTOR = '[dev-target="job-function-checkbox-wrapper"]';
+const CLEAR_SELECTOR = '[dev-target="clear"]';
+const LOCATION_MESSAGE = "We couldn't find that location. Try a city and state.";
 
 interface Filters {
 	q: string;
-	location: string;
-	category: string;
+	divisions: string[];
+	remoteOnly: boolean;
+	employmentTypes: string[];
+	categories: string[];
 	min: number | null;
 	max: number | null;
+}
+
+let divisionInputs: HTMLInputElement[] = [];
+let employmentInputs: HTMLInputElement[] = [];
+let salaryInputs: HTMLInputElement[] = [];
+let functionInputs: HTMLInputElement[] = [];
+
+function logEarly(message: string): void {
+	console.error(`[job.ts] ${message}`);
 }
 
 function readText(selector: string): string {
@@ -39,27 +67,81 @@ function readNumber(selector: string): number | null {
 	return parsed;
 }
 
+function readSearch(): string {
+	const marked = document.querySelector<HTMLInputElement>(SEARCH_SELECTOR);
+	const field = marked ?? document.querySelector<HTMLInputElement>(QUERY_SELECTOR);
+	return field?.value.trim() ?? '';
+}
+
+function readLocation(): string {
+	return document.querySelector<HTMLInputElement>(LOCATION_SELECTOR)?.value.trim() ?? '';
+}
+
+function checkedValues(inputs: HTMLInputElement[]): string[] {
+	return inputs.filter((input) => input.checked).map((input) => input.value);
+}
+
+function readSalary(): { min: number | null; max: number | null } {
+	if (salaryInputs.length === 0) {
+		return { min: readNumber(SALARY_MIN_SELECTOR), max: readNumber(SALARY_MAX_SELECTOR) };
+	}
+
+	const selected = salaryInputs.find((input) => input.checked);
+	if (!selected) {
+		return { min: null, max: null };
+	}
+
+	const min = Number(selected.value);
+	if (!Number.isFinite(min)) {
+		logEarly(`Salary option "${selected.value}" is not a number.`);
+		return { min: null, max: null };
+	}
+
+	return { min, max: null };
+}
+
+function readCategories(): string[] {
+	if (functionInputs.length > 0) {
+		return checkedValues(functionInputs);
+	}
+
+	const category = readText(CATEGORY_SELECTOR);
+	return category ? [category] : [];
+}
+
 function readFilters(): Filters {
+	const salary = readSalary();
 	return {
-		q: readText(QUERY_SELECTOR),
-		location: readText(LOCATION_SELECTOR),
-		category: readText(CATEGORY_SELECTOR),
-		min: readNumber(SALARY_MIN_SELECTOR),
-		max: readNumber(SALARY_MAX_SELECTOR),
+		q: readSearch(),
+		divisions: checkedValues(divisionInputs),
+		remoteOnly: document.querySelector<HTMLInputElement>(`${REMOTE_SELECTOR} input`)?.checked ?? false,
+		employmentTypes: checkedValues(employmentInputs),
+		categories: readCategories(),
+		min: salary.min,
+		max: salary.max,
 	};
 }
 
 function matches(job: JobSummary, filters: Filters): boolean {
-	if (filters.q && !job.title.toLowerCase().includes(filters.q.toLowerCase())) {
+	if (filters.q) {
+		const query = filters.q.toLowerCase();
+		const haystack = `${job.title} ${job.location}`.toLowerCase();
+		if (!haystack.includes(query)) {
+			return false;
+		}
+	}
+	if (!matchesChoice(job.division ?? '', filters.divisions)) {
 		return false;
 	}
-	if (filters.location && !job.location.toLowerCase().includes(filters.location.toLowerCase())) {
+	if (filters.remoteOnly && !job.remote) {
 		return false;
 	}
-	if (filters.category && job.category.toLowerCase() !== filters.category.toLowerCase()) {
+	if (!matchesEmployment(job.employmentType, filters.employmentTypes)) {
 		return false;
 	}
-
+	if (!matchesChoice(job.category, filters.categories)) {
+		return false;
+	}
 	if (filters.min == null && filters.max == null) {
 		return true;
 	}
@@ -76,6 +158,87 @@ function matches(job: JobSummary, filters: Filters): boolean {
 	}
 
 	return true;
+}
+
+function optionId(group: string, label: string): string {
+	const slug = label
+		.toLowerCase()
+		.replace(/[^a-z0-9]+/g, '-')
+		.replace(/^-|-$/g, '');
+	return `${group}-${slug}`;
+}
+
+function fillChoices(selector: string, options: FilterChoice[], group: string): HTMLInputElement[] {
+	const template = document.querySelector<HTMLElement>(selector);
+	if (!template) {
+		logEarly(`${group} option template is missing.`);
+		return [];
+	}
+
+	const parent = template.parentElement;
+	if (!parent) {
+		logEarly(`${group} option template has no parent.`);
+		return [];
+	}
+	if (options.length === 0) {
+		logEarly(`${group} has no options.`);
+		template.remove();
+		return [];
+	}
+
+	const inputs: HTMLInputElement[] = [];
+	for (const option of options) {
+		const node = template.cloneNode(true) as HTMLElement;
+		node.removeAttribute('dev-target');
+		const input = node.querySelector<HTMLInputElement>('input');
+		const label = node.querySelector<HTMLElement>('.form_checkbox-label, .form_radio-label');
+		if (!input || !label) {
+			logEarly(`${group} option "${option.label}" is missing an input or label.`);
+			continue;
+		}
+
+		const id = optionId(group, option.label);
+		input.id = id;
+		input.name = group;
+		input.value = option.value;
+		input.checked = false;
+		label.textContent = option.label;
+		label.setAttribute('for', id);
+		node.querySelector('.w-checkbox-input, .w-radio-input')?.classList.remove('w--redirected-checked');
+		parent.append(node);
+		inputs.push(input);
+	}
+
+	template.remove();
+	return inputs;
+}
+
+function syncInput(input: HTMLInputElement): void {
+	const root = input.closest('label');
+	if (!(root instanceof HTMLElement)) {
+		logEarly('Filter option is missing its label.');
+		return;
+	}
+
+	root.querySelector('.w-checkbox-input, .w-radio-input')?.classList.toggle('w--redirected-checked', input.checked);
+}
+
+function syncInputs(inputs: HTMLInputElement[]): void {
+	for (const input of inputs) {
+		syncInput(input);
+	}
+}
+
+function locationMessageNode(list: HTMLElement): HTMLElement {
+	const existing = document.querySelector<HTMLElement>('[dev-target="jobs-location-error"]');
+	if (existing) {
+		return existing;
+	}
+
+	const node = document.createElement('p');
+	node.setAttribute('dev-target', 'jobs-location-error');
+	list.before(node);
+	return node;
 }
 
 function detailHref(list: HTMLElement, id: number): string {
@@ -295,42 +458,204 @@ function render(list: HTMLElement, template: HTMLElement, jobs: JobSummary[]): v
 	}
 }
 
-function bindFilters(onChange: () => void): void {
-	const selectors = [QUERY_SELECTOR, LOCATION_SELECTOR, CATEGORY_SELECTOR, SALARY_MIN_SELECTOR, SALARY_MAX_SELECTOR];
-	for (const selector of selectors) {
+function bindChoice(inputs: HTMLInputElement[], onChange: () => void): void {
+	for (const input of inputs) {
+		input.addEventListener('change', () => {
+			syncInputs(inputs);
+			onChange();
+		});
+	}
+}
+
+function bindFilters(onChange: () => void, onLocation: () => void, onClear: () => void): void {
+	const search = document.querySelector(SEARCH_SELECTOR) ?? document.querySelector(QUERY_SELECTOR);
+	search?.addEventListener('input', onChange);
+	bindChoice(divisionInputs, onChange);
+	bindChoice(employmentInputs, onChange);
+	bindChoice(functionInputs, onChange);
+	bindChoice(salaryInputs, onChange);
+
+	const remote = document.querySelector<HTMLInputElement>(`${REMOTE_SELECTOR} input`);
+	remote?.addEventListener('change', () => {
+		syncInput(remote);
+		onChange();
+	});
+
+	const location = document.querySelector(LOCATION_SELECTOR);
+	location?.addEventListener('input', onLocation);
+	location?.addEventListener('change', onLocation);
+	document.querySelector('#Locations')?.addEventListener('change', () => {
+		const select = document.querySelector<HTMLSelectElement>('#Locations');
+		const input = document.querySelector<HTMLInputElement>(LOCATION_SELECTOR);
+		const selected = [...(select?.selectedOptions ?? [])]
+			.map((option) => option.textContent?.trim() ?? '')
+			.find((label) => label.length > 0);
+		if (input && selected && input.value.trim() !== selected) {
+			input.value = selected;
+		}
+		onLocation();
+	});
+
+	document.querySelector(CLEAR_SELECTOR)?.addEventListener('click', (event) => {
+		event.preventDefault();
+		onClear();
+	});
+
+	for (const selector of [CATEGORY_SELECTOR, SALARY_MIN_SELECTOR, SALARY_MAX_SELECTOR]) {
 		document.querySelector(selector)?.addEventListener('input', onChange);
 		document.querySelector(selector)?.addEventListener('change', onChange);
 	}
 }
 
-const list = document.querySelector<HTMLElement>(LIST_SELECTOR);
-if (list) {
+function start(): void {
+	const list = document.querySelector<HTMLElement>(LIST_SELECTOR);
+	if (!list) {
+		logEarly('Job list is missing.');
+		return;
+	}
+
 	const template = takeCardTemplate(list);
 	bindErrorCancel();
 	if (!template) {
+		logEarly('Job card is missing.');
 		showError('Job card is missing.');
-	} else if (!readApiOrigin()) {
-		showError('Careers API is not configured.');
-	} else {
-		let loaded: JobSummary[] = [];
-		let pending = 0;
-		const schedule = () => {
-			window.clearTimeout(pending);
-			pending = window.setTimeout(() => render(list, template, loaded), 150);
-		};
-		list.textContent = 'Loading jobs…';
-		bindFilters(schedule);
-
-		void fetchPublishedJobs()
-			.then((jobs) => {
-				loaded = jobs;
-				fillCategories(jobs);
-				render(list, template, jobs);
-			})
-			.catch((error: unknown) => {
-				console.error('[Careers] Job list failed', error);
-				list.textContent = '';
-				showError('Jobs could not be loaded. Please try again.');
-			});
+		return;
 	}
+	if (!readApiOrigin()) {
+		logEarly('Careers API is not configured.');
+		showError('Careers API is not configured.');
+		return;
+	}
+
+	document.querySelector<HTMLFormElement>('#wf-form-Filter')?.addEventListener('submit', (event) => {
+		event.preventDefault();
+	});
+	document.querySelector('[fs-cmsfilter-element="filters"]')?.removeAttribute('fs-cmsfilter-element');
+
+	divisionInputs = fillChoices(DIVISION_SELECTOR, DIVISION_OPTIONS, 'division');
+	employmentInputs = fillChoices(EMPLOYMENT_SELECTOR, EMPLOYMENT_OPTIONS, 'employment-type');
+	salaryInputs = fillChoices(SALARY_SELECTOR, SALARY_OPTIONS, 'salary');
+	functionInputs = fillChoices(FUNCTION_SELECTOR, JOB_FUNCTION_OPTIONS, 'job-function');
+	if (!document.querySelector(`${REMOTE_SELECTOR} input`)) {
+		logEarly('Remote option is missing.');
+	}
+	if (!document.querySelector(LOCATION_SELECTOR)) {
+		logEarly('Location input is missing.');
+	}
+
+	const message = locationMessageNode(list);
+	let loaded: JobSummary[] = [];
+	let radius: JobSummary[] | null = null;
+	let pending = 0;
+	let locationPending = 0;
+	let requestId = 0;
+
+	const paint = () => {
+		render(list, template, radius ?? loaded);
+	};
+	const schedule = () => {
+		window.clearTimeout(pending);
+		pending = window.setTimeout(paint, 150);
+	};
+	const applyLocation = () => {
+		const place = readLocation();
+		window.clearTimeout(locationPending);
+		if (!place) {
+			requestId += 1;
+			radius = null;
+			message.textContent = '';
+			schedule();
+			return;
+		}
+
+		locationPending = window.setTimeout(() => {
+			requestId += 1;
+			const id = requestId;
+			void fetchJobsNear(place)
+				.then((jobs) => {
+					if (id !== requestId) {
+						return;
+					}
+					if (jobs === null) {
+						logEarly(`Could not resolve location: ${place}`);
+						radius = null;
+						message.textContent = LOCATION_MESSAGE;
+						schedule();
+						return;
+					}
+
+					radius = jobs;
+					message.textContent = '';
+					schedule();
+				})
+				.catch((error: unknown) => {
+					if (id !== requestId) {
+						return;
+					}
+					console.error('[job.ts] Location search failed', error);
+					message.textContent = '';
+					showError('Jobs could not be loaded. Please try again.');
+				});
+		}, 400);
+	};
+	const clearFilters = () => {
+		const search = document.querySelector<HTMLInputElement>(SEARCH_SELECTOR) ?? document.querySelector<HTMLInputElement>(QUERY_SELECTOR);
+		if (search) {
+			search.value = '';
+		}
+		const location = document.querySelector<HTMLInputElement>(LOCATION_SELECTOR);
+		if (location) {
+			location.value = '';
+		}
+		const select = document.querySelector<HTMLSelectElement>('#Locations');
+		if (select) {
+			for (const option of select.options) {
+				option.selected = false;
+			}
+		}
+		for (const input of [...divisionInputs, ...employmentInputs, ...salaryInputs, ...functionInputs]) {
+			input.checked = false;
+		}
+		const remote = document.querySelector<HTMLInputElement>(`${REMOTE_SELECTOR} input`);
+		if (remote) {
+			remote.checked = false;
+		}
+		syncInputs([...divisionInputs, ...employmentInputs, ...salaryInputs, ...functionInputs]);
+		if (remote) {
+			syncInput(remote);
+		}
+		const min = document.querySelector<HTMLInputElement>(SALARY_MIN_SELECTOR);
+		const max = document.querySelector<HTMLInputElement>(SALARY_MAX_SELECTOR);
+		if (min) {
+			min.value = '';
+		}
+		if (max) {
+			max.value = '';
+		}
+		const category = document.querySelector<HTMLSelectElement>(CATEGORY_SELECTOR);
+		if (category) {
+			category.value = '';
+		}
+		requestId += 1;
+		window.clearTimeout(locationPending);
+		radius = null;
+		message.textContent = '';
+		paint();
+	};
+
+	bindFilters(schedule, applyLocation, clearFilters);
+	list.textContent = 'Loading jobs…';
+	void fetchPublishedJobs()
+		.then((jobs) => {
+			loaded = jobs;
+			fillCategories(jobs);
+			paint();
+		})
+		.catch((error: unknown) => {
+			console.error('[job.ts] Job list failed', error);
+			list.textContent = '';
+			showError('Jobs could not be loaded. Please try again.');
+		});
 }
+
+start();

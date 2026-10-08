@@ -4,6 +4,7 @@ export interface ListQuery {
 	q?: string;
 	location?: string;
 	category?: string;
+	near?: string;
 	start: number;
 	count: number;
 }
@@ -187,6 +188,45 @@ export function publicHtml(value: string): string {
 		.replace(/\s+on\w+\s*=\s*(['"])[\s\S]*?\1/gi, '')
 		.replace(/\s+on\w+\s*=\s*[^\s>]+/gi, '')
 		.replace(/javascript:/gi, '');
+}
+
+export function toJobSummary(job: JobDetail): JobSummary {
+	return {
+		id: job.id,
+		title: job.title,
+		location: job.location,
+		employmentType: job.employmentType,
+		category: job.category,
+		salary: job.salary,
+		salaryMin: job.salaryMin,
+		salaryMax: job.salaryMax,
+		salaryUnit: job.salaryUnit,
+		publishedAt: job.publishedAt,
+		division: job.division,
+		remote: job.remote,
+		worksite: job.worksite,
+	};
+}
+
+export function geocodePlace(address: unknown): string {
+	if (!isRecord(address)) {
+		return '';
+	}
+
+	const city = text(address.city);
+	const state = stateAbbreviation(text(address.state));
+	const zip = text(address.zip);
+	const country = text(address.countryName);
+	const region = [state, zip].filter(Boolean).join(' ');
+	const line = [city, region].filter(Boolean).join(', ');
+	if (!line) {
+		return '';
+	}
+	if (!country || isUnitedStates(country)) {
+		return line;
+	}
+
+	return [line, country].filter(Boolean).join(', ');
 }
 
 export function formatLocation(address: unknown): string {

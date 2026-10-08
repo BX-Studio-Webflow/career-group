@@ -2,6 +2,7 @@ import type { Context } from 'hono';
 
 import { bullhornClient, BullhornHttpError, ConfigError } from './bullhorn/client.js';
 import { readConfig } from './bullhorn/config.js';
+import { MapsConfigError, MapsUnavailableError, UnresolvedPlaceError } from './geo.js';
 import { fail, JOB_CACHE_CONTROL } from './http.js';
 import type { AppEnv } from './types.js';
 import { parseApplication, parseJobParam, parseListQuery } from './validate.js';
@@ -40,10 +41,23 @@ export async function listJobs(context: Context<AppEnv>) {
 
 	const { value } = parsed;
 	return bullhornRoute(context, async () => {
-		const result = await clientFromEnv().searchPublished(value);
-		return context.json({ ok: true, ...result }, 200, {
-			'Cache-Control': JOB_CACHE_CONTROL,
-		});
+		try {
+			const result = value.near ? await clientFromEnv().searchNear(value.near) : await clientFromEnv().searchPublished(value);
+			return context.json({ ok: true, ...result }, 200, {
+				'Cache-Control': JOB_CACHE_CONTROL,
+			});
+		} catch (error) {
+			if (error instanceof UnresolvedPlaceError) {
+				return fail(context, 422, 'unresolved_location', "We couldn't find that location. Try a city and state.");
+			}
+			if (error instanceof MapsConfigError) {
+				return fail(context, 500, 'configuration_error', 'Location search is not configured.');
+			}
+			if (error instanceof MapsUnavailableError) {
+				return fail(context, 502, 'maps_unavailable', 'Location search is unavailable right now.');
+			}
+			throw error;
+		}
 	});
 }
 

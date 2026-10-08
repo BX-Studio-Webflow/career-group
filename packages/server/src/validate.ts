@@ -11,6 +11,7 @@ const listQuerySchema = z.object({
 	q: z.string().trim().max(100).optional(),
 	location: z.string().trim().max(80).optional(),
 	category: z.string().trim().max(80).optional(),
+	near: z.string().trim().max(80).optional(),
 	start: z.coerce.number().int().min(0).max(10_000).default(0),
 	count: z.coerce.number().int().min(1).max(200).default(50),
 });
@@ -58,7 +59,7 @@ function issueMessage(error: z.ZodError, fallback: string): string {
 	if (field === 'phone') {
 		return 'Enter a shorter phone number.';
 	}
-	if (field === 'q' || field === 'location' || field === 'category' || field === 'start' || field === 'count') {
+	if (field === 'q' || field === 'location' || field === 'category' || field === 'near' || field === 'start' || field === 'count') {
 		return 'Those filters are not valid.';
 	}
 
@@ -70,6 +71,7 @@ export function parseListQuery(query: Record<string, string | undefined>): { ok:
 		q: query.q || undefined,
 		location: query.location || undefined,
 		category: query.category || undefined,
+		near: query.near || undefined,
 		start: query.start ?? 0,
 		count: query.count ?? 50,
 	});
@@ -78,13 +80,14 @@ export function parseListQuery(query: Record<string, string | undefined>): { ok:
 		return { ok: false, message: issueMessage(parsed.error, 'Those filters are not valid.') };
 	}
 
-	const { q, location, category, start, count } = parsed.data;
+	const { q, location, category, near, start, count } = parsed.data;
 	return {
 		ok: true,
 		value: {
 			q: q || undefined,
 			location: location || undefined,
 			category: category || undefined,
+			near: near || undefined,
 			start,
 			count,
 		},
