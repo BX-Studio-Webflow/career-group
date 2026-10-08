@@ -1,6 +1,6 @@
 import { fetchJobsNear, fetchPublishedJobs, readApiOrigin } from '../shared/api';
 import { divisionChipColor } from '../shared/divisions';
-import { bindErrorCancel, showError } from '../shared/errors';
+import { bindErrorCancel, hideError, showError } from '../shared/errors';
 import {
 	DIVISION_OPTIONS,
 	EMPLOYMENT_OPTIONS,
@@ -16,7 +16,7 @@ const LIST_SELECTOR = '[dev-target="jobs-list"]';
 const CARD_SELECTOR = '[dev-target="job-card-item"]';
 const QUERY_SELECTOR = '[dev-target="jobs-query"]';
 const SEARCH_SELECTOR = '[dev-target="search-input"]';
-const LOCATION_SELECTOR = '[fs-combobox-element="text-input"], [dev-target="jobs-location"]';
+const LOCATION_SELECTOR = '[dev-target="location-search-input"]';
 const CATEGORY_SELECTOR = '[dev-target="jobs-category"]';
 const SALARY_MIN_SELECTOR = '[dev-target="jobs-salary-min"]';
 const SALARY_MAX_SELECTOR = '[dev-target="jobs-salary-max"]';
@@ -27,7 +27,6 @@ const EMPLOYMENT_SELECTOR = '[dev-target="employment-type-checkbox-wrapper"]';
 const SALARY_SELECTOR = '[dev-target="salary-radio-wrapper"]';
 const FUNCTION_SELECTOR = '[dev-target="job-function-checkbox-wrapper"]';
 const CLEAR_SELECTOR = '[dev-target="clear"]';
-const LOCATION_MESSAGE = "We couldn't find that location. Try a city and state.";
 
 interface Filters {
 	q: string;
@@ -122,7 +121,10 @@ function readFilters(): Filters {
 	};
 }
 
-function matches(job: JobSummary, filters: Filters): boolean {
+function matches(job: JobSummary, filters: Filters, locationText: string): boolean {
+	if (locationText && !job.location.toLowerCase().includes(locationText.toLowerCase())) {
+		return false;
+	}
 	if (filters.q) {
 		const query = filters.q.toLowerCase();
 		const haystack = `${job.title} ${job.location}`.toLowerCase();
@@ -227,18 +229,6 @@ function syncInputs(inputs: HTMLInputElement[]): void {
 	for (const input of inputs) {
 		syncInput(input);
 	}
-}
-
-function locationMessageNode(list: HTMLElement): HTMLElement {
-	const existing = document.querySelector<HTMLElement>('[dev-target="jobs-location-error"]');
-	if (existing) {
-		return existing;
-	}
-
-	const node = document.createElement('p');
-	node.setAttribute('dev-target', 'jobs-location-error');
-	list.before(node);
-	return node;
 }
 
 function detailHref(list: HTMLElement, id: number): string {
@@ -438,18 +428,17 @@ function fillResults(shown: number, total: number): void {
 	totalNode.textContent = String(total);
 }
 
-function render(list: HTMLElement, template: HTMLElement, jobs: JobSummary[]): void {
-	const visible = jobs.filter((job) => matches(job, readFilters()));
+function render(list: HTMLElement, template: HTMLElement, jobs: JobSummary[], locationText = ''): void {
+	const visible = jobs.filter((job) => matches(job, readFilters(), locationText));
 	fillResults(visible.length, jobs.length);
 	list.replaceChildren();
 
 	if (visible.length === 0) {
-		const empty = document.createElement('p');
-		empty.setAttribute('dev-target', 'jobs-empty');
-		empty.textContent = 'No jobs match your search.';
-		list.append(empty);
+		showError('We could not find your jobs');
 		return;
 	}
+
+	hideError();
 
 	for (const job of visible) {
 		const card = template.cloneNode(true) as HTMLElement;
@@ -485,17 +474,6 @@ function bindFilters(onChange: () => void, onLocation: () => void, onClear: () =
 	const location = document.querySelector(LOCATION_SELECTOR);
 	location?.addEventListener('input', onLocation);
 	location?.addEventListener('change', onLocation);
-	document.querySelector('#Locations')?.addEventListener('change', () => {
-		const select = document.querySelector<HTMLSelectElement>('#Locations');
-		const input = document.querySelector<HTMLInputElement>(LOCATION_SELECTOR);
-		const selected = [...(select?.selectedOptions ?? [])]
-			.map((option) => option.textContent?.trim() ?? '')
-			.find((label) => label.length > 0);
-		if (input && selected && input.value.trim() !== selected) {
-			input.value = selected;
-		}
-		onLocation();
-	});
 
 	document.querySelector(CLEAR_SELECTOR)?.addEventListener('click', (event) => {
 		event.preventDefault();
@@ -544,7 +522,6 @@ function start(): void {
 		logEarly('Location input is missing.');
 	}
 
-	const message = locationMessageNode(list);
 	let loaded: JobSummary[] = [];
 	let radius: JobSummary[] | null = null;
 	let pending = 0;
@@ -552,7 +529,7 @@ function start(): void {
 	let requestId = 0;
 
 	const paint = () => {
-		render(list, template, radius ?? loaded);
+		render(list, template, radius ?? loaded, radius ? '' : readLocation());
 	};
 	const schedule = () => {
 		window.clearTimeout(pending);
@@ -564,10 +541,12 @@ function start(): void {
 		if (!place) {
 			requestId += 1;
 			radius = null;
-			message.textContent = '';
 			schedule();
 			return;
 		}
+
+		radius = null;
+		schedule();
 
 		locationPending = window.setTimeout(() => {
 			requestId += 1;
@@ -578,15 +557,15 @@ function start(): void {
 						return;
 					}
 					if (jobs === null) {
-						logEarly(`Could not resolve location: ${place}`);
 						radius = null;
-						message.textContent = LOCATION_MESSAGE;
+						if (!loaded.some((job) => job.location.toLowerCase().includes(place.toLowerCase()))) {
+							logEarly(`Could not resolve location: ${place}`);
+						}
 						schedule();
 						return;
 					}
 
 					radius = jobs;
-					message.textContent = '';
 					schedule();
 				})
 				.catch((error: unknown) => {
@@ -594,8 +573,7 @@ function start(): void {
 						return;
 					}
 					console.error('[job.ts] Location search failed', error);
-					message.textContent = '';
-					showError('Jobs could not be loaded. Please try again.');
+					showError('Location search is unavailable right now. Please try again.');
 				});
 		}, 400);
 	};
@@ -607,12 +585,6 @@ function start(): void {
 		const location = document.querySelector<HTMLInputElement>(LOCATION_SELECTOR);
 		if (location) {
 			location.value = '';
-		}
-		const select = document.querySelector<HTMLSelectElement>('#Locations');
-		if (select) {
-			for (const option of select.options) {
-				option.selected = false;
-			}
 		}
 		for (const input of [...divisionInputs, ...employmentInputs, ...salaryInputs, ...functionInputs]) {
 			input.checked = false;
@@ -640,7 +612,6 @@ function start(): void {
 		requestId += 1;
 		window.clearTimeout(locationPending);
 		radius = null;
-		message.textContent = '';
 		paint();
 	};
 

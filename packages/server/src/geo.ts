@@ -75,7 +75,8 @@ export async function geocode(place: string): Promise<GeoPoint | null> {
 		return null;
 	}
 	if (status !== 'OK') {
-		console.error(`[geo] Geocoding status ${status || 'unknown'}`);
+		const reason = isRecord(body) && typeof body.error_message === 'string' ? body.error_message : '';
+		console.error(`[geo] Geocoding status ${status || 'unknown'}${reason ? `: ${reason}` : ''}`);
 		throw new MapsUnavailableError();
 	}
 
