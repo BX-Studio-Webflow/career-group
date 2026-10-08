@@ -28,6 +28,10 @@ const EMPLOYMENT_SELECTOR = '[dev-target="employment-type-checkbox-wrapper"]';
 const SALARY_SELECTOR = '[dev-target="salary-radio-wrapper"]';
 const FUNCTION_SELECTOR = '[dev-target="job-function-checkbox-wrapper"]';
 const CLEAR_SELECTOR = '[dev-target="clear"]';
+const FILTER_WRAPPER_SELECTOR = '[dev-target="filter-wrapper"]';
+const FILTER_TRIGGER_SELECTOR = '[dev-target="filter-trigger"]';
+const FILTER_CLOSE_SELECTOR = '[dev-target="filter-close"]';
+const MOBILE_FILTER_QUERY = '(max-width: 767px)';
 
 interface Filters {
 	q: string;
@@ -499,7 +503,45 @@ function bindFilters(onChange: () => void, onLocation: () => void, onClear: () =
 	}
 }
 
+function bindMobileFilter(): void {
+	const wrapper = document.querySelector<HTMLElement>(FILTER_WRAPPER_SELECTOR);
+	if (!wrapper) {
+		logEarly('Filter wrapper is missing.');
+		return;
+	}
+
+	const mobile = window.matchMedia(MOBILE_FILTER_QUERY);
+	const hideOnMobile = () => {
+		wrapper.classList.toggle('hide', mobile.matches);
+	};
+	hideOnMobile();
+	mobile.addEventListener('change', hideOnMobile);
+
+	const triggers = document.querySelectorAll<HTMLElement>(FILTER_TRIGGER_SELECTOR);
+	if (triggers.length === 0) {
+		logEarly('Filter trigger is missing.');
+	}
+	for (const trigger of triggers) {
+		trigger.addEventListener('click', (event) => {
+			event.preventDefault();
+			wrapper.classList.remove('hide');
+		});
+	}
+
+	const closers = document.querySelectorAll<HTMLElement>(FILTER_CLOSE_SELECTOR);
+	if (closers.length === 0) {
+		logEarly('Filter close is missing.');
+	}
+	for (const closer of closers) {
+		closer.addEventListener('click', (event) => {
+			event.preventDefault();
+			wrapper.classList.add('hide');
+		});
+	}
+}
+
 function start(): void {
+	bindMobileFilter();
 	const list = document.querySelector<HTMLElement>(LIST_SELECTOR);
 	if (!list) {
 		logEarly('Job list is missing.');
