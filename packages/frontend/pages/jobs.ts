@@ -461,7 +461,8 @@ function render(list: HTMLElement, template: HTMLElement, jobs: JobSummary[]): v
 function bindChoice(inputs: HTMLInputElement[], onChange: () => void): void {
 	for (const input of inputs) {
 		input.addEventListener('change', () => {
-			syncInputs(inputs);
+			// Webflow toggles w--redirected-checked while this event is still bubbling.
+			setTimeout(() => syncInputs(inputs), 0);
 			onChange();
 		});
 	}
@@ -477,7 +478,7 @@ function bindFilters(onChange: () => void, onLocation: () => void, onClear: () =
 
 	const remote = document.querySelector<HTMLInputElement>(`${REMOTE_SELECTOR} input`);
 	remote?.addEventListener('change', () => {
-		syncInput(remote);
+		setTimeout(() => syncInput(remote), 0);
 		onChange();
 	});
 
