@@ -23,6 +23,7 @@ export interface JobSummary {
 	division: string;
 	remote: boolean;
 	worksite: string;
+	preview: string;
 }
 
 export interface JobDetail extends JobSummary {
@@ -179,6 +180,34 @@ function divisionName(value: unknown): string {
 	return DIVISION_NAMES[code.toLowerCase()] ?? code;
 }
 
+const PREVIEW_LIMIT = 220;
+
+export function previewText(html: string, short: string): string {
+	const blurb = short.trim() || plainText(html);
+	if (blurb.length <= PREVIEW_LIMIT) {
+		return blurb;
+	}
+
+	const cut = blurb.slice(0, PREVIEW_LIMIT);
+	const space = cut.lastIndexOf(' ');
+	return `${(space > 80 ? cut.slice(0, space) : cut).trim()}…`;
+}
+
+function plainText(html: string): string {
+	return publicHtml(html)
+		.replace(/<br\s*\/?>/gi, ' ')
+		.replace(/<\/p>/gi, ' ')
+		.replace(/<[^>]+>/g, ' ')
+		.replace(/&nbsp;/gi, ' ')
+		.replace(/&amp;/gi, '&')
+		.replace(/&lt;/gi, '<')
+		.replace(/&gt;/gi, '>')
+		.replace(/&#39;|&apos;/gi, "'")
+		.replace(/&quot;/gi, '"')
+		.replace(/\s+/g, ' ')
+		.trim();
+}
+
 export function publicHtml(value: string): string {
 	return value
 		.replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, '')
@@ -205,6 +234,7 @@ export function toJobSummary(job: JobDetail): JobSummary {
 		division: job.division,
 		remote: job.remote,
 		worksite: job.worksite,
+		preview: job.preview,
 	};
 }
 
@@ -299,6 +329,7 @@ export function mapJob(value: unknown): JobDetail | null {
 		division: divisionName(value.customText20),
 		remote: worksite === 'Remote',
 		worksite,
+		preview: previewText(text(value.publicDescription), text(value.customText4)),
 		description: publicHtml(text(value.publicDescription)),
 	};
 }

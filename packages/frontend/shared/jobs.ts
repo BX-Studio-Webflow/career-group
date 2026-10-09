@@ -12,6 +12,7 @@ export interface JobSummary {
 	division?: string;
 	remote?: boolean;
 	worksite?: string;
+	preview?: string;
 }
 
 export interface JobDetail extends JobSummary {

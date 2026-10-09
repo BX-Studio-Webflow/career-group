@@ -15,6 +15,35 @@ const DIVISION_CARDS: Record<string, string> = {
 const FORM_SELECTOR = '[dev-target="apply-form"]';
 const DESCRIPTION_SELECTOR = '[dev-target="job-description"]';
 const SUCCESS_SELECTOR = '[dev-target="apply-success"]';
+const JOB_BODY_SELECTOR = '[dev-target="job-body"]';
+const HIGHLIGHT_SELECTOR = '[dev-target="job-highlights"]';
+const SIDE_CARD_SELECTOR = `${HIGHLIGHT_SELECTOR}, [dev-target^="division-card-"]`;
+
+function jobBody(): HTMLElement | null {
+	return document.querySelector<HTMLElement>(JOB_BODY_SELECTOR);
+}
+
+function hideJobBody(): void {
+	jobBody()?.classList.add('hide');
+}
+
+function showJobBody(): void {
+	jobBody()?.classList.remove('hide');
+}
+
+function hideSideCards(): void {
+	document.querySelectorAll<HTMLElement>(SIDE_CARD_SELECTOR).forEach((card) => {
+		card.classList.add('hide');
+	});
+}
+
+function showHighlight(): void {
+	document.querySelector<HTMLElement>(HIGHLIGHT_SELECTOR)?.classList.remove('hide');
+}
+
+hideJobBody();
+hideSideCards();
+document.title = 'Job';
 
 function setText(target: string, value: string): void {
 	const node = document.querySelector<HTMLElement>(`[dev-target="${target}"]`);
@@ -32,7 +61,9 @@ function fillJob(title: string, location: string, employmentType: string, catego
 	setText('division', division);
 	fillHighlight(division);
 	showDivisionCard(division);
+	showHighlight();
 	document.title = title;
+	showJobBody();
 
 	const descriptionNode = document.querySelector<HTMLElement>(DESCRIPTION_SELECTOR);
 	if (descriptionNode) {
@@ -41,7 +72,7 @@ function fillJob(title: string, location: string, employmentType: string, catego
 }
 
 function fillHighlight(division: string): void {
-	const card = document.querySelector<HTMLElement>('[dev-target="job-highlights"]');
+	const card = document.querySelector<HTMLElement>(HIGHLIGHT_SELECTOR);
 	if (!card) {
 		return;
 	}
@@ -125,11 +156,13 @@ if (form || description) {
 	const id = new URLSearchParams(window.location.search).get('id')?.trim() ?? '';
 
 	if (!/^[1-9]\d{0,14}$/.test(id)) {
+		document.title = 'Job not available';
 		showError('This job link is incomplete.');
 	} else {
 		void fetchJob(id)
 			.then((job) => {
 				if (!job) {
+					document.title = 'Job not available';
 					showError('This job is no longer available.');
 					return;
 				}
@@ -141,6 +174,7 @@ if (form || description) {
 			})
 			.catch((error: unknown) => {
 				console.error('[Careers] Job detail failed', error);
+				document.title = 'Job not available';
 				showError('This job could not be loaded. Please try again.');
 			});
 	}

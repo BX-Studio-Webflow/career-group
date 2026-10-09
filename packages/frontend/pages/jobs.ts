@@ -380,10 +380,10 @@ function fillCard(card: HTMLElement, job: JobSummary, href: string): void {
 	}
 	setShown(card.querySelector('.new-job-text'), isNewJob(job.publishedAt));
 
-	const preview = card.querySelector<HTMLElement>('[fs-cmsfilter-field="preview"]');
-	if (preview) {
-		preview.textContent = '';
-	}
+	const preview = job.preview?.trim() ?? '';
+	card.querySelectorAll<HTMLElement>('[dev-target="preview-text"], [fs-cmsfilter-field="preview"]').forEach((node) => {
+		node.textContent = preview;
+	});
 }
 
 function fillCategories(jobs: JobSummary[]): void {

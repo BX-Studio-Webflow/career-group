@@ -26,8 +26,10 @@ export const LIST_FIELDS = [
 	'isOpen',
 	'isPublic',
 	'isDeleted',
+	'customText4',
+	'publicDescription',
 ].join(',');
 
-export const DETAIL_FIELDS = `${LIST_FIELDS},publicDescription`;
+export const DETAIL_FIELDS = LIST_FIELDS;
 
 export const PUBLISHED_QUERY = 'isDeleted:false AND isPublic:1';

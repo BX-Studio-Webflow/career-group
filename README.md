@@ -100,7 +100,7 @@ Bullhorn's ATS API usage limits, per OAuth client id, are 1,500 requests per min
 | Worksite | `customText10`. The card shows `Remote` or `Hybrid`. Onsite and blank stay hidden. |
 | Division | `customText20` |
 | Posted date | `customDate1`, then `dateLastPublished` |
-| Public description | `publicDescription` (detail only) |
+| Public description | `publicDescription` on the detail page. The card preview is `customText4` when set, otherwise a short plain-text excerpt of `publicDescription`. |
 
 `clientBillRate` is not shown as pay. Division codes: `CG` Career Group, `SB` Syndicatebleu, `FF` Fourth Floor, `CGS` Career Group Search, `CGC` CGC Internal, `Event` or `Events` Career Group Events. An unknown code is shown as stored.
 

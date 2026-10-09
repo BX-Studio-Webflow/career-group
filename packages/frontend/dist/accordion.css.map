@@ -1,0 +1,7 @@
+{
+  "version": 3,
+  "sources": ["../shared/accordion.css"],
+  "sourcesContent": ["[dev-target='accordion-item']:not(.is-active) [dev-target='accordion-body'] {\n\tdisplay: none;\n}\n\n[dev-target='accordion-item'] .caret {\n\ttransform: rotate(0deg);\n\ttransition: transform 0.2s ease;\n}\n\n[dev-target='accordion-item'].is-active .caret {\n\ttransform: rotate(180deg);\n}\n"],
+  "mappings": ";AAAA,CAAC,0BAA4B,KAAK,CAAC,WAAW,CAAC;AAC9C,WAAS;AACV;AAEA,CAAC,2BAA6B,CAAC;AAC9B,aAAW,OAAO;AAClB,cAAY,UAAU,KAAK;AAC5B;AAEA,CAAC,0BAA4B,CATM,UASK,CALT;AAM9B,aAAW,OAAO;AACnB;",
+  "names": []
+}

@@ -202,6 +202,8 @@ describe('published job query', () => {
 		expect(mapJob(publishedJob(10, { customDate1: Date.now() - 86_400_000 }))?.title).toBe('Accountant');
 		expect(mapJob(publishedJob(10, { dateLastPublished: Date.now() + 86_400_000 }))).toBeNull();
 		expect(mapJob(publishedJob(10))?.description).toBe('<p>Hello</p>');
+		expect(mapJob(publishedJob(10))?.preview).toBe('Hello');
+		expect(mapJob(publishedJob(10, { customText4: 'Short blurb' }))?.preview).toBe('Short blurb');
 		expect(mapJob(publishedJob(10))?.location).toBe('Austin, TX');
 		expect(mapJob(publishedJob(10, { address: { city: 'San Francisco', state: 'California', countryName: 'United States' } }))?.location).toBe(
 			'San Francisco, CA',
