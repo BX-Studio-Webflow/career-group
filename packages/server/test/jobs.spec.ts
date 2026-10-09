@@ -205,6 +205,9 @@ describe('published job query', () => {
 		expect(mapJob(publishedJob(10))?.preview).toBe('Hello');
 		expect(mapJob(publishedJob(10, { customText4: 'Short blurb' }))?.preview).toBe('Short blurb');
 		expect(mapJob(publishedJob(10))?.location).toBe('Austin, TX');
+		expect(
+			mapJob(publishedJob(10, { address: { city: 'Miami', state: 'FL', countryName: '- None Specified -' } }))?.location,
+		).toBe('Miami, FL');
 		expect(mapJob(publishedJob(10, { address: { city: 'San Francisco', state: 'California', countryName: 'United States' } }))?.location).toBe(
 			'San Francisco, CA',
 		);

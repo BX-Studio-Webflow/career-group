@@ -157,6 +157,15 @@ function stateAbbreviation(value: string): string {
 	return STATE_ABBREVIATIONS[value.toLowerCase()] ?? value;
 }
 
+function specified(value: string): string {
+	const trimmed = value.trim();
+	if (!trimmed || /^-?\s*none specified\s*-?$/i.test(trimmed)) {
+		return '';
+	}
+
+	return trimmed;
+}
+
 function isUnitedStates(value: string): boolean {
 	return /^(united states|united states of america|usa|u\.s\.a\.|u\.s\.|us)$/i.test(value);
 }
@@ -243,10 +252,10 @@ export function geocodePlace(address: unknown): string {
 		return '';
 	}
 
-	const city = text(address.city);
-	const state = stateAbbreviation(text(address.state));
-	const zip = text(address.zip);
-	const country = text(address.countryName);
+	const city = specified(text(address.city));
+	const state = stateAbbreviation(specified(text(address.state)));
+	const zip = specified(text(address.zip));
+	const country = specified(text(address.countryName));
 	const region = [state, zip].filter(Boolean).join(' ');
 	const line = [city, region].filter(Boolean).join(', ');
 	if (!line) {
@@ -264,9 +273,9 @@ export function formatLocation(address: unknown): string {
 		return '';
 	}
 
-	const city = text(address.city);
-	const state = stateAbbreviation(text(address.state));
-	const country = text(address.countryName);
+	const city = specified(text(address.city));
+	const state = stateAbbreviation(specified(text(address.state)));
+	const country = specified(text(address.countryName));
 	if (!country || isUnitedStates(country)) {
 		return [city, state].filter(Boolean).join(', ');
 	}
