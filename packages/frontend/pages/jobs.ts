@@ -187,6 +187,20 @@ function choiceInputs(selector: string, options: FilterChoice[], group: string):
 	return inputs;
 }
 
+function jobFunctionInputs(): HTMLInputElement[] {
+	if (document.querySelector(FUNCTION_SELECTOR)) {
+		return fillChoices(FUNCTION_SELECTOR, JOB_FUNCTION_OPTIONS, 'job-function');
+	}
+
+	const row = document.querySelector<HTMLInputElement>('input[name="job-function"]')?.closest('label');
+	if (!(row instanceof HTMLElement)) {
+		logEarly('job-function option template is missing.');
+		return [];
+	}
+
+	return replaceChoiceRows(row, JOB_FUNCTION_OPTIONS, 'job-function');
+}
+
 function fillChoices(selector: string, options: FilterChoice[], group: string): HTMLInputElement[] {
 	const template = document.querySelector<HTMLElement>(selector);
 	if (!template) {
@@ -230,6 +244,23 @@ function fillChoices(selector: string, options: FilterChoice[], group: string): 
 
 	template.remove();
 	return inputs;
+}
+
+function replaceChoiceRows(row: HTMLElement, options: FilterChoice[], group: string): HTMLInputElement[] {
+	const parent = row.parentElement;
+	if (!parent) {
+		logEarly(`${group} option template has no parent.`);
+		return [];
+	}
+
+	const template = row.cloneNode(true) as HTMLElement;
+	for (const input of [...parent.querySelectorAll<HTMLInputElement>(`input[name="${group}"]`)]) {
+		input.closest('label')?.remove();
+	}
+
+	parent.append(template);
+	template.setAttribute('dev-target', 'job-function-checkbox-wrapper');
+	return fillChoices(`[dev-target="job-function-checkbox-wrapper"]`, options, group);
 }
 
 function syncInput(input: HTMLInputElement): void {
@@ -571,7 +602,7 @@ function start(): void {
 	divisionInputs = choiceInputs(DIVISION_SELECTOR, DIVISION_OPTIONS, 'division');
 	employmentInputs = choiceInputs(EMPLOYMENT_SELECTOR, EMPLOYMENT_OPTIONS, 'employment-type');
 	salaryInputs = choiceInputs(SALARY_SELECTOR, SALARY_OPTIONS, 'salary');
-	functionInputs = choiceInputs(FUNCTION_SELECTOR, JOB_FUNCTION_OPTIONS, 'job-function');
+	functionInputs = jobFunctionInputs();
 	new Accordion({
 		wrapper: 'accordion-wrapper',
 		item: 'accordion-item',
