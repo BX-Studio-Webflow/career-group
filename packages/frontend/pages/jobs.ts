@@ -451,7 +451,9 @@ function render(list: HTMLElement, template: HTMLElement, jobs: JobSummary[], lo
 	list.replaceChildren();
 
 	if (visible.length === 0) {
-		showError('We could not find your jobs');
+		if (!locationText) {
+			showError('We could not find your jobs');
+		}
 		return;
 	}
 
@@ -617,10 +619,12 @@ function start(): void {
 					if (id !== requestId) {
 						return;
 					}
-					if (jobs === null) {
+					if (typeof jobs === 'string') {
 						radius = null;
-						if (!loaded.some((job) => job.location.toLowerCase().includes(place.toLowerCase()))) {
+						const matched = loaded.some((job) => (job.location ?? '').toLowerCase().includes(place.toLowerCase()));
+						if (!matched) {
 							logEarly(`Could not resolve location: ${place}`);
+							showError(jobs);
 						}
 						schedule();
 						return;

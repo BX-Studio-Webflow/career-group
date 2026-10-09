@@ -30,7 +30,7 @@ interface JobListResponse {
 	jobs?: JobSummary[];
 }
 
-export async function fetchJobsNear(near: string): Promise<JobSummary[] | null> {
+export async function fetchJobsNear(near: string): Promise<JobSummary[] | string> {
 	const url = apiUrl(`/api/jobs?near=${encodeURIComponent(near)}`);
 	if (!url) {
 		throw new Error('missing_api_origin');
@@ -38,7 +38,16 @@ export async function fetchJobsNear(near: string): Promise<JobSummary[] | null> 
 
 	const response = await fetch(url, { headers: { Accept: 'application/json' } });
 	if (response.status === 422) {
-		return null;
+		try {
+			const body = (await response.json()) as { message?: string };
+			const message = body.message?.trim();
+			if (message) {
+				return message;
+			}
+		} catch (error) {
+			console.error('[job.ts] Unresolved location response was not readable.', error);
+		}
+		return "We couldn't find that location. Try a city and state.";
 	}
 	if (!response.ok) {
 		throw new Error('jobs_failed');
