@@ -64,7 +64,7 @@ export interface ResumeFile {
 }
 
 export interface ParsedApplication extends ApplicationInput {
-	resume: ResumeFile | null;
+	resume: ResumeFile;
 }
 
 function isHttpUrl(value: string): boolean {
@@ -224,9 +224,9 @@ export async function parseApplication(
 	};
 }
 
-async function parseResume(value: unknown): Promise<{ ok: true; file: ResumeFile | null } | { ok: false; message: string }> {
+async function parseResume(value: unknown): Promise<{ ok: true; file: ResumeFile } | { ok: false; message: string }> {
 	if (!(value instanceof File) || value.size === 0) {
-		return { ok: true, file: null };
+		return { ok: false, message: 'Attach a resume.' };
 	}
 
 	if (value.size > MAX_RESUME_BYTES) {

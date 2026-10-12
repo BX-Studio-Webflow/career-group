@@ -191,7 +191,7 @@ function clearEnv(): void {
 	}
 }
 
-function application(fields: Record<string, string> = {}, file?: File): FormData {
+function application(fields: Record<string, string> = {}, file: File | null = new File(['resume'], 'ada.pdf', { type: 'application/pdf' })): FormData {
 	const form = new FormData();
 	form.set('firstName', fields.firstName ?? 'Ada');
 	form.set('lastName', fields.lastName ?? 'Lovelace');
@@ -434,6 +434,14 @@ describe('POST /api/jobs/:id/apply', () => {
 			body: application({ email: 'not-an-email' }),
 		});
 		expect(response.status).toBe(400);
+		expect(fake.calls).toHaveLength(0);
+	});
+
+	it('rejects a missing resume before calling Bullhorn', async () => {
+		const response = await app.request('/api/jobs/10/apply', { method: 'POST', body: application({}, null) });
+		expect(response.status).toBe(400);
+		const body = (await response.json()) as { message: string };
+		expect(body.message).toBe('Attach a resume.');
 		expect(fake.calls).toHaveLength(0);
 	});
 

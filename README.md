@@ -43,7 +43,7 @@ The detail link is `?id=` on one Webflow page, by default `/dev/job-posting-dev?
 
 `near` is a city and state, such as `Austin, TX`. The API geocodes it with Google and returns published jobs within 50 miles. The radius is fixed. `GOOGLE_MAPS_API_KEY` stays on the server. An unknown place is `422` with `unresolved_location`. `location` is still an exact city match.
 
-Apply fields are `firstName`, `lastName`, `email`, `phone`, `city`, `state`, and `referral`, plus optional `linkedinUrl`, `portfolioUrl`, and `resume` (`pdf`, `doc`, or `docx`, 10 MB). Phone, city, state, and referral are required. A missing resume is fine. The resume is uploaded onto the candidate as file type `Resume`. This Bullhorn account does not accept files on a job submission. If the upload fails after the submission is created, the response is still `{ "ok": true, "resumeAttached": false }`.
+Apply fields are `firstName`, `lastName`, `email`, `phone`, `city`, `state`, `referral`, and `resume` (`pdf`, `doc`, or `docx`, 10 MB), plus optional `linkedinUrl` and `portfolioUrl`. Phone, city, state, referral, and the resume are required. The resume is uploaded onto the candidate as file type `Resume`. This Bullhorn account does not accept files on a job submission. If the upload fails after the submission is created, the response is still `{ "ok": true, "resumeAttached": false }`.
 
 `CORS_ORIGINS` is a comma-separated list, or `*`. `careergroupcompanies.com`, `webflow.io`, and their subdomains are still allowed when the list is restricted.
 
@@ -174,7 +174,7 @@ Detail markup. The page URL is `/dev/job-posting-dev?id=123` for as long as that
 	<input dev-target="city" required />
 	<input dev-target="state" required />
 	<select dev-target="referral" required></select>
-	<input dev-target="file-upload" type="file" accept=".pdf,.doc,.docx" />
+	<input dev-target="file-upload" type="file" accept=".pdf,.doc,.docx" required />
 	<input dev-target="linkedin-url" type="url" />
 	<input dev-target="porfolio" type="url" />
 	<input type="submit" value="Submit" />

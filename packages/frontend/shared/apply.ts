@@ -87,7 +87,7 @@ function urlError(target: string, url: string, longMessage: string, invalidMessa
 
 export function fieldErrors(form: HTMLFormElement): { target: string; message: string }[] {
 	const resume = form.querySelector<HTMLInputElement>('[dev-target="file-upload"]')?.files?.[0];
-	const resumeMessage = resume && resume.size > 0 ? resumeError(resume) : null;
+	const resumeMessage = !resume || resume.size === 0 ? 'Attach a resume.' : resumeError(resume);
 	return [
 		textError('first-name', value(form, 'first-name'), 'Enter a first name.', 50, 'Enter a shorter first name.'),
 		textError('last-name', value(form, 'last-name'), 'Enter a last name.', 50, 'Enter a shorter last name.'),
