@@ -4,14 +4,8 @@ import { bullhornClient, BullhornHttpError, ConfigError } from './bullhorn/clien
 import { readConfig } from './bullhorn/config.js';
 import { MapsConfigError, MapsUnavailableError, UnresolvedPlaceError } from './geo.js';
 import { fail, JOB_CACHE_CONTROL } from './http.js';
-import { verifyTurnstile } from './turnstile.js';
 import type { AppEnv } from './types.js';
 import { parseApplication, parseJobParam, parseListQuery } from './validate.js';
-
-function clientIp(context: Context<AppEnv>): string {
-	const forwarded = context.req.header('x-forwarded-for') ?? context.req.header('cf-connecting-ip') ?? '';
-	return forwarded.split(',')[0]?.trim() ?? '';
-}
 
 function clientFromEnv() {
 	const config = readConfig();
@@ -101,18 +95,6 @@ export async function applyToJob(context: Context<AppEnv>) {
 	const parsed = await parseApplication(body);
 	if (!parsed.ok) {
 		return fail(context, 400, 'invalid_application', parsed.message);
-	}
-
-	const token = typeof body['cf-turnstile-response'] === 'string' ? body['cf-turnstile-response'].trim() : '';
-	const verdict = await verifyTurnstile(token, clientIp(context));
-	if (verdict === 'unconfigured') {
-		return fail(context, 500, 'configuration_error', 'The security check is not configured.');
-	}
-	if (verdict === 'unavailable') {
-		return fail(context, 502, 'turnstile_unavailable', 'Security check is unavailable. Please try again.');
-	}
-	if (verdict === 'rejected') {
-		return fail(context, 400, 'turnstile_failed', 'Security check failed. Please try again.');
 	}
 
 	const { value } = parsed;

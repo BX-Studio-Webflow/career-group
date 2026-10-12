@@ -45,8 +45,6 @@ The detail link is `?id=` on one Webflow page, by default `/dev/job-posting-dev?
 
 Apply fields are `firstName`, `lastName`, `email`, `phone`, `city`, `state`, and `referral`, plus optional `linkedinUrl`, `portfolioUrl`, and `resume` (`pdf`, `doc`, or `docx`, 4 MB). Phone, city, state, and referral are required. The 4 MB cap stays under Vercel's request body limit, so a 10 MB file cannot be accepted through this API. A missing resume is fine. The resume is uploaded onto the job submission and onto the candidate. If the submission upload fails after the submission is created, the response is still `{ "ok": true, "resumeAttached": false }`.
 
-The form is protected with the Cloudflare Turnstile widget already on the Webflow form. The browser sends `cf-turnstile-response`. The API calls siteverify and rejects a missing, reused, or failed token, and a token whose hostname is not `careergroupcompanies.com`, `www.careergroupcompanies.com`, a `*.webflow.io` host, or a host listed in `TURNSTILE_HOSTNAMES`. Set `TURNSTILE_SECRET` to that widget's secret.
-
 `CORS_ORIGINS` is a comma-separated list, or `*`. `careergroupcompanies.com`, `webflow.io`, and their subdomains are still allowed when the list is restricted.
 
 ## Caching
@@ -77,7 +75,6 @@ BULLHORN_SUBMISSION_STATUS=Web Response
 BULLHORN_CANDIDATE_STATUS=New Lead
 CORS_ORIGINS=https://www.careergroupcompanies.com,https://careergroupcompanies.com
 GOOGLE_MAPS_API_KEY=
-TURNSTILE_SECRET=
 ```
 
 `BULLHORN_CANDIDATE_STATUS` is sent only when it is set. This corp uses `New Lead`.
@@ -168,7 +165,7 @@ Detail markup. The page URL is `/dev/job-posting-dev?id=123` for as long as that
 <h1 dev-target="job-title"></h1>
 <div dev-target="job-description"></div>
 
-<form dev-target="apply-form" data-turnstile-sitekey="...">
+<form dev-target="apply-form">
 	<input dev-target="first-name" required />
 	<input dev-target="last-name" required />
 	<input dev-target="email" type="email" required />
@@ -191,6 +188,8 @@ Detail markup. The page URL is `/dev/job-posting-dev?id=123` for as long as that
 	<button type="button" dev-target="cancel">Close</button>
 </div>
 ```
+
+A field that fails the check gets `is-error`: an empty required field, an invalid email, a LinkedIn or portfolio value that is not an http(s) URL, or a resume that is the wrong type or too large. Editing the field removes the class.
 
 On load, `job-highlights` takes the division color and every other division card gets `hide`.
 

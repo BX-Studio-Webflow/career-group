@@ -33,7 +33,90 @@ function resumeError(file: File): string | null {
 	return null;
 }
 
-export function applicationFormData(form: HTMLFormElement): { ok: true; body: FormData } | { ok: false; message: string } {
+export interface ApplyFailure {
+	ok: false;
+	message: string;
+	targets: string[];
+}
+
+const MESSAGE_TARGETS: [string, string][] = [
+	['first name', 'first-name'],
+	['last name', 'last-name'],
+	['email', 'email'],
+	['phone', 'phone'],
+	['city', 'city'],
+	['state', 'state'],
+	['heard about', 'referral'],
+	['linkedin', 'linkedin-url'],
+	['portfolio', 'porfolio'],
+	['resume', 'file-upload'],
+];
+
+function fieldError(target: string, message: string): { target: string; message: string } {
+	return { target, message };
+}
+
+function textError(
+	target: string,
+	text: string,
+	emptyMessage: string,
+	limit: number,
+	longMessage: string,
+): { target: string; message: string } | null {
+	if (!text) {
+		return fieldError(target, emptyMessage);
+	}
+	if (text.length > limit) {
+		return fieldError(target, longMessage);
+	}
+	return null;
+}
+
+function urlError(target: string, url: string, longMessage: string, invalidMessage: string): { target: string; message: string } | null {
+	if (!url) {
+		return null;
+	}
+	if (url.length > 100) {
+		return fieldError(target, longMessage);
+	}
+	if (!isHttpUrl(url)) {
+		return fieldError(target, invalidMessage);
+	}
+	return null;
+}
+
+export function fieldErrors(form: HTMLFormElement): { target: string; message: string }[] {
+	const resume = form.querySelector<HTMLInputElement>('[dev-target="file-upload"]')?.files?.[0];
+	const resumeMessage = resume && resume.size > 0 ? resumeError(resume) : null;
+	return [
+		textError('first-name', value(form, 'first-name'), 'Enter a first name.', 50, 'Enter a shorter first name.'),
+		textError('last-name', value(form, 'last-name'), 'Enter a last name.', 50, 'Enter a shorter last name.'),
+		isEmail(value(form, 'email')) ? null : fieldError('email', 'Enter a valid email address.'),
+		textError('phone', value(form, 'phone'), 'Enter a phone number.', 50, 'Enter a shorter phone number.'),
+		textError('city', value(form, 'city'), 'Enter a city.', 100, 'Enter a shorter city.'),
+		textError('state', value(form, 'state'), 'Enter a state.', 100, 'Enter a shorter state.'),
+		value(form, 'referral') ? null : fieldError('referral', 'Select how you heard about us.'),
+		urlError('linkedin-url', value(form, 'linkedin-url'), 'Enter a shorter LinkedIn URL.', 'Enter a valid LinkedIn URL.'),
+		urlError('porfolio', value(form, 'porfolio'), 'Enter a shorter portfolio URL.', 'Enter a valid portfolio URL.'),
+		resumeMessage ? fieldError('file-upload', resumeMessage) : null,
+	].filter((error): error is { target: string; message: string } => error !== null);
+}
+
+export function targetForMessage(message: string): string | null {
+	const text = message.toLowerCase();
+	return MESSAGE_TARGETS.find(([needle]) => text.includes(needle))?.[1] ?? null;
+}
+
+export function applicationFormData(form: HTMLFormElement): { ok: true; body: FormData } | ApplyFailure {
+	const errors = fieldErrors(form);
+	if (errors.length > 0) {
+		return {
+			ok: false,
+			message: errors[0]?.message ?? 'Check the application fields and try again.',
+			targets: errors.map((error) => error.target).filter(Boolean),
+		};
+	}
+
 	const firstName = value(form, 'first-name');
 	const lastName = value(form, 'last-name');
 	const email = value(form, 'email');
@@ -44,59 +127,6 @@ export function applicationFormData(form: HTMLFormElement): { ok: true; body: Fo
 	const linkedinUrl = value(form, 'linkedin-url');
 	const portfolioUrl = value(form, 'porfolio');
 	const resume = form.querySelector<HTMLInputElement>('[dev-target="file-upload"]')?.files?.[0];
-	const token = form.querySelector<HTMLInputElement>('input[name="cf-turnstile-response"]')?.value.trim() ?? '';
-
-	if (!firstName) {
-		return { ok: false, message: 'Enter a first name.' };
-	}
-	if (firstName.length > 50) {
-		return { ok: false, message: 'Enter a shorter first name.' };
-	}
-	if (!lastName) {
-		return { ok: false, message: 'Enter a last name.' };
-	}
-	if (lastName.length > 50) {
-		return { ok: false, message: 'Enter a shorter last name.' };
-	}
-	if (!isEmail(email)) {
-		return { ok: false, message: 'Enter a valid email address.' };
-	}
-	if (!phone) {
-		return { ok: false, message: 'Enter a phone number.' };
-	}
-	if (phone.length > 50) {
-		return { ok: false, message: 'Enter a shorter phone number.' };
-	}
-	if (!city) {
-		return { ok: false, message: 'Enter a city.' };
-	}
-	if (city.length > 100) {
-		return { ok: false, message: 'Enter a shorter city.' };
-	}
-	if (!state) {
-		return { ok: false, message: 'Enter a state.' };
-	}
-	if (state.length > 100) {
-		return { ok: false, message: 'Enter a shorter state.' };
-	}
-	if (!referral) {
-		return { ok: false, message: 'Select how you heard about us.' };
-	}
-	if (linkedinUrl && (!isHttpUrl(linkedinUrl) || linkedinUrl.length > 100)) {
-		return { ok: false, message: linkedinUrl.length > 100 ? 'Enter a shorter LinkedIn URL.' : 'Enter a valid LinkedIn URL.' };
-	}
-	if (portfolioUrl && (!isHttpUrl(portfolioUrl) || portfolioUrl.length > 100)) {
-		return { ok: false, message: portfolioUrl.length > 100 ? 'Enter a shorter portfolio URL.' : 'Enter a valid portfolio URL.' };
-	}
-	if (resume && resume.size > 0) {
-		const message = resumeError(resume);
-		if (message) {
-			return { ok: false, message };
-		}
-	}
-	if (!token || token.length > 2048) {
-		return { ok: false, message: 'Security check failed. Please try again.' };
-	}
 
 	const body = new FormData();
 	body.set('firstName', firstName);
@@ -115,17 +145,18 @@ export function applicationFormData(form: HTMLFormElement): { ok: true; body: Fo
 	if (resume && resume.size > 0) {
 		body.set('resume', resume);
 	}
-	body.set('cf-turnstile-response', token);
 	return { ok: true, body };
 }
 
-export function resetTurnstile(form: HTMLFormElement): void {
-	const input = form.querySelector<HTMLInputElement>('input[name="cf-turnstile-response"]');
-	const widgetId = input?.id.match(/^cf-chl-widget-(.+)_response$/)?.[1];
-	if (widgetId) {
-		window.turnstile?.reset(widgetId);
-		return;
-	}
+export function clearFieldErrors(form: HTMLFormElement): void {
+	form.querySelectorAll<HTMLElement>('.is-error').forEach((field) => {
+		field.classList.remove('is-error');
+	});
+}
 
-	window.turnstile?.reset();
+export function markFieldErrors(form: HTMLFormElement, targets: string[]): void {
+	clearFieldErrors(form);
+	for (const target of targets) {
+		form.querySelector<HTMLElement>(`[dev-target="${target}"]`)?.classList.add('is-error');
+	}
 }

@@ -20,8 +20,6 @@ const ENV_KEYS = [
 	'BULLHORN_CANDIDATE_STATUS',
 	'CORS_ORIGINS',
 	'GOOGLE_MAPS_API_KEY',
-	'TURNSTILE_SECRET',
-	'TURNSTILE_HOSTNAMES',
 ] as const;
 
 function publishedJob(id: number, extra: Record<string, unknown> = {}) {
@@ -147,26 +145,6 @@ class FakeBullhorn {
 			return new Response(null, { status: this.resumeStatus });
 		}
 
-		if (url.hostname === 'challenges.cloudflare.com') {
-			const params =
-				typeof init?.body === 'string'
-					? new URLSearchParams(init.body)
-					: init?.body instanceof URLSearchParams
-						? init.body
-						: new URLSearchParams();
-			const token = params.get('response') ?? '';
-			if (token === 'token') {
-				return Response.json({ success: true, hostname: 'www.careergroupcompanies.com' });
-			}
-			if (token === 'bad-host') {
-				return Response.json({ success: true, hostname: 'evil.example' });
-			}
-			if (token === 'down') {
-				return new Response('down', { status: 500 });
-			}
-			return Response.json({ success: false, 'error-codes': ['invalid-input-response'] });
-		}
-
 		if (url.hostname === 'maps.googleapis.com') {
 			const address = (url.searchParams.get('address') ?? '').trim().toLowerCase();
 			this.geocodeKeys.push(url.searchParams.get('key') ?? '');
@@ -200,9 +178,7 @@ function setEnv(): void {
 	process.env.BULLHORN_API_USERNAME = 'api-user';
 	process.env.BULLHORN_API_PASSWORD = 'api-password';
 	process.env.BULLHORN_SUBMISSION_STATUS = 'Web Response';
-	process.env.TURNSTILE_SECRET = 'test-secret';
 	delete process.env.BULLHORN_CANDIDATE_STATUS;
-	delete process.env.TURNSTILE_HOSTNAMES;
 	delete process.env.CORS_ORIGINS;
 	delete process.env.GOOGLE_MAPS_API_KEY;
 }
@@ -230,9 +206,6 @@ function application(fields: Record<string, string> = {}, file?: File): FormData
 	}
 	if (file) {
 		form.set('resume', file);
-	}
-	if (fields.turnstile !== '') {
-		form.set('cf-turnstile-response', fields.turnstile ?? 'token');
 	}
 	return form;
 }
@@ -529,31 +502,6 @@ describe('POST /api/jobs/:id/apply', () => {
 		expect(fake.calls).toHaveLength(0);
 	});
 
-	it('rejects a missing or mismatched Turnstile token', async () => {
-		const missing = await app.request('/api/jobs/10/apply', { method: 'POST', body: application({ turnstile: '' }) });
-		const mismatched = await app.request('/api/jobs/10/apply', { method: 'POST', body: application({ turnstile: 'bad-host' }) });
-		expect(missing.status).toBe(400);
-		expect(mismatched.status).toBe(400);
-		expect(((await mismatched.json()) as { message: string }).message).toBe('Security check failed. Please try again.');
-		expect(fake.createdCandidates).toBe(0);
-	});
-
-	it('rejects the application when Turnstile is unavailable', async () => {
-		const response = await app.request('/api/jobs/10/apply', { method: 'POST', body: application({ turnstile: 'down' }) });
-		expect(response.status).toBe(502);
-		const body = (await response.json()) as { error: string };
-		expect(body.error).toBe('turnstile_unavailable');
-		expect(fake.createdCandidates).toBe(0);
-	});
-
-	it('fails closed when the Turnstile secret is missing', async () => {
-		delete process.env.TURNSTILE_SECRET;
-		const response = await app.request('/api/jobs/10/apply', { method: 'POST', body: application() });
-		expect(response.status).toBe(500);
-		const body = (await response.json()) as { error: string };
-		expect(body.error).toBe('configuration_error');
-		expect(fake.calls).toHaveLength(0);
-	});
 });
 
 describe('CORS', () => {

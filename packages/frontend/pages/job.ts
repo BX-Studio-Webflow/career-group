@@ -1,5 +1,5 @@
 import { fetchJob, submitApplication } from '../shared/api';
-import { applicationFormData, resetTurnstile } from '../shared/apply';
+import { applicationFormData, clearFieldErrors, markFieldErrors, targetForMessage } from '../shared/apply';
 import { divisionChipColor } from '../shared/divisions';
 import { bindErrorCancel, hideError, hideFormError, showError, showFormError } from '../shared/errors';
 import { formatSalaryRange } from '../shared/jobs';
@@ -104,6 +104,10 @@ function showDivisionCard(division: string): void {
 }
 
 function showSuccess(message: string): void {
+	const form = document.querySelector<HTMLFormElement>(FORM_SELECTOR);
+	if (form) {
+		clearFieldErrors(form);
+	}
 	hideFormError();
 	const success = document.querySelector<HTMLElement>(SUCCESS_SELECTOR);
 	if (!success) {
@@ -133,6 +137,17 @@ function setSubmitting(submit: HTMLInputElement | HTMLButtonElement, waiting: bo
 function bindForm(form: HTMLFormElement, id: string): void {
 	form.noValidate = true;
 	hideFormError();
+	clearFieldErrors(form);
+	form.addEventListener('input', (event) => {
+		if (event.target instanceof HTMLElement) {
+			event.target.classList.remove('is-error');
+		}
+	});
+	form.addEventListener('change', (event) => {
+		if (event.target instanceof HTMLElement) {
+			event.target.classList.remove('is-error');
+		}
+	});
 	form.addEventListener(
 		'submit',
 		(event) => {
@@ -147,6 +162,7 @@ function bindForm(form: HTMLFormElement, id: string): void {
 
 			const parsed = applicationFormData(form);
 			if (!parsed.ok) {
+				markFieldErrors(form, parsed.targets);
 				showFormError(parsed.message);
 				if (submit) {
 					setSubmitting(submit, false, label);
@@ -154,11 +170,16 @@ function bindForm(form: HTMLFormElement, id: string): void {
 				return;
 			}
 
+			clearFieldErrors(form);
 			void submitApplication(id, parsed.body)
 				.then((result) => {
-					resetTurnstile(form);
 					if (!result.ok) {
-						showFormError(result.message || 'Your application could not be submitted. Please try again.');
+						const message = result.message || 'Your application could not be submitted. Please try again.';
+						const target = targetForMessage(message);
+						if (target) {
+							markFieldErrors(form, [target]);
+						}
+						showFormError(message);
 						return;
 					}
 
@@ -179,7 +200,6 @@ function bindForm(form: HTMLFormElement, id: string): void {
 					form.reset();
 				})
 				.catch((error: unknown) => {
-					resetTurnstile(form);
 					console.error('[Careers] Application failed', error);
 					showFormError('Your application could not be submitted. Please try again.');
 				})
