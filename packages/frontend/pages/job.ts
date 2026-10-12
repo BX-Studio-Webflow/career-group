@@ -14,8 +14,9 @@ const DIVISION_CARDS: Record<string, string> = {
 };
 
 const FORM_SELECTOR = '[dev-target="apply-form"]';
+const FORM_WRAPPER_SELECTOR = '[dev-target="form-wrapper"]';
 const DESCRIPTION_SELECTOR = '[dev-target="job-description"]';
-const SUCCESS_SELECTOR = '[dev-target="apply-success"]';
+const SUCCESS_SELECTOR = '[dev-target="success-state"]';
 const JOB_BODY_SELECTOR = '[dev-target="job-body"]';
 const HIGHLIGHT_SELECTOR = '[dev-target="job-highlights"]';
 const SIDE_CARD_SELECTOR = `${HIGHLIGHT_SELECTOR}, [dev-target^="division-card-"]`;
@@ -115,8 +116,8 @@ function showSuccess(message: string): void {
 		return;
 	}
 
-	success.textContent = message;
 	success.classList.remove('hide');
+	document.querySelector<HTMLElement>(FORM_WRAPPER_SELECTOR)?.classList.add('hide');
 	hideError();
 }
 

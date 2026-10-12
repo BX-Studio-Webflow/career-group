@@ -10,7 +10,3 @@ export function parseJobId(value: string): number | null {
 
 	return id;
 }
-
-export function quoteWhere(value: string): string {
-	return `'${value.replace(/'/g, "''")}'`;
-}

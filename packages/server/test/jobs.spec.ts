@@ -99,7 +99,7 @@ class FakeBullhorn {
 			return Response.json({ data: { ...this.job, id: Number(jobMatch[1]) } });
 		}
 
-		if (url.pathname.endsWith('/query/Candidate')) {
+		if (url.pathname.endsWith('/search/Candidate')) {
 			const data = this.candidate ? [this.candidate] : [];
 			return Response.json({ total: data.length, data });
 		}

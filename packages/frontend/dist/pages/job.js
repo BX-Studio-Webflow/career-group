@@ -238,7 +238,7 @@ function showFormError(message) {
   }
   text.textContent = message;
   wrapper.classList.remove("hide");
-  document.querySelector('[dev-target="apply-success"]')?.classList.add("hide");
+  document.querySelector('[dev-target="success-state"]')?.classList.add("hide");
 }
 function hideFormError() {
   document.querySelector(FORM_ERROR_WRAPPER_SELECTOR)?.classList.add("hide");
@@ -284,8 +284,9 @@ var DIVISION_CARDS = {
   "cgc internal": "division-card-career-grp-companies"
 };
 var FORM_SELECTOR = '[dev-target="apply-form"]';
+var FORM_WRAPPER_SELECTOR = '[dev-target="form-wrapper"]';
 var DESCRIPTION_SELECTOR = '[dev-target="job-description"]';
-var SUCCESS_SELECTOR = '[dev-target="apply-success"]';
+var SUCCESS_SELECTOR = '[dev-target="success-state"]';
 var JOB_BODY_SELECTOR = '[dev-target="job-body"]';
 var HIGHLIGHT_SELECTOR = '[dev-target="job-highlights"]';
 var SIDE_CARD_SELECTOR = `${HIGHLIGHT_SELECTOR}, [dev-target^="division-card-"]`;
@@ -362,8 +363,8 @@ function showSuccess(message) {
     showError(message);
     return;
   }
-  success.textContent = message;
   success.classList.remove("hide");
+  document.querySelector(FORM_WRAPPER_SELECTOR)?.classList.add("hide");
   hideError();
 }
 function submitControl(form2) {

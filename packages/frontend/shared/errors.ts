@@ -44,7 +44,7 @@ export function showFormError(message: string): void {
 
 	text.textContent = message;
 	wrapper.classList.remove('hide');
-	document.querySelector<HTMLElement>('[dev-target="apply-success"]')?.classList.add('hide');
+	document.querySelector<HTMLElement>('[dev-target="success-state"]')?.classList.add('hide');
 }
 
 export function hideFormError(): void {

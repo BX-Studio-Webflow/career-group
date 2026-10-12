@@ -165,6 +165,7 @@ Detail markup. The page URL is `/dev/job-posting-dev?id=123` for as long as that
 <h1 dev-target="job-title"></h1>
 <div dev-target="job-description"></div>
 
+<div dev-target="form-wrapper">
 <form dev-target="apply-form">
 	<input dev-target="first-name" required />
 	<input dev-target="last-name" required />
@@ -178,10 +179,11 @@ Detail markup. The page URL is `/dev/job-posting-dev?id=123` for as long as that
 	<input dev-target="porfolio" type="url" />
 	<input type="submit" value="Submit" />
 </form>
+</div>
 <div dev-target="form-error-wrapper" class="hide">
 	<p dev-target="form-error-text"></p>
 </div>
-<p dev-target="apply-success" class="hide"></p>
+<div dev-target="success-state" class="hide"></div>
 
 <div dev-target="error-wrapper" class="hide">
 	<p dev-target="error-text"></p>

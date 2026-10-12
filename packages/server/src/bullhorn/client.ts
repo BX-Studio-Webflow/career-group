@@ -6,8 +6,16 @@ import type { ApplicationInput, ResumeFile } from '../validate.js';
 import { candidateFields } from './application.js';
 import type { BullhornConfig } from './config.js';
 import { DETAIL_FIELDS, LIST_FIELDS } from './fields.js';
-import { quoteWhere } from './ids.js';
-import { geocodePlace, type JobDetail, type JobSummary, type ListQuery, mapJob, publishedJobsQuery, toJobSummary } from './map.js';
+import {
+	escapeLucene,
+	geocodePlace,
+	type JobDetail,
+	type JobSummary,
+	type ListQuery,
+	mapJob,
+	publishedJobsQuery,
+	toJobSummary,
+} from './map.js';
 
 export class BullhornHttpError extends Error {
 	readonly status: number;
@@ -266,8 +274,8 @@ export class BullhornClient {
 	}
 
 	private async findCandidate(email: string): Promise<number | null> {
-		const body = await this.readJson('candidate_search', 'query/Candidate', {
-			where: `email=${quoteWhere(email)}`,
+		const body = await this.readJson('candidate_search', 'search/Candidate', {
+			query: `email:"${escapeLucene(email)}"`,
 			fields: 'id,email',
 			count: '5',
 		});
@@ -341,8 +349,8 @@ export class BullhornClient {
 		}
 
 		if (!response.ok) {
-			await response.body?.cancel();
-			console.error(`Bullhorn ${label} failed: ${response.status}`);
+			const detail = await response.text();
+			console.error(`Bullhorn ${label} failed: ${response.status} ${detail.slice(0, 300)}`);
 			throw new BullhornHttpError(response.status, 'Bullhorn request failed.');
 		}
 
