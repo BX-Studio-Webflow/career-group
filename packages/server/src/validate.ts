@@ -80,6 +80,18 @@ function tooLong(issue: { code: string }): boolean {
 	return issue.code === 'too_big';
 }
 
+const FIELD_LABELS: Record<string, string> = {
+	firstName: 'first name',
+	lastName: 'last name',
+	email: 'email address',
+	phone: 'phone number',
+	city: 'city',
+	state: 'state',
+	referral: 'referral source',
+	linkedinUrl: 'LinkedIn URL',
+	portfolioUrl: 'portfolio URL',
+};
+
 function issueMessage(error: z.ZodError, fallback: string): string {
 	const issue = error.issues[0];
 	if (!issue) {
@@ -116,6 +128,14 @@ function issueMessage(error: z.ZodError, fallback: string): string {
 	}
 	if (field === 'q' || field === 'location' || field === 'category' || field === 'near' || field === 'start' || field === 'count') {
 		return 'Those filters are not valid.';
+	}
+
+	const label = FIELD_LABELS[String(field)] ?? '';
+	if (label && tooLong(issue)) {
+		return `Enter a shorter ${label}.`;
+	}
+	if (label) {
+		return `Enter a valid ${label}.`;
 	}
 
 	return fallback;
@@ -199,7 +219,7 @@ export async function parseApplication(
 	});
 
 	if (!parsed.success) {
-		return { ok: false, message: issueMessage(parsed.error, 'Check the application fields and try again.') };
+		return { ok: false, message: issueMessage(parsed.error, 'A required field is missing or not valid.') };
 	}
 
 	const resume = await parseResume(body.resume);

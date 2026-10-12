@@ -88,8 +88,18 @@ export async function applyToJob(context: Context<AppEnv>) {
 	let body: Record<string, string | File>;
 	try {
 		body = await context.req.parseBody();
-	} catch {
-		return fail(context, 400, 'invalid_application', 'Check the application fields and try again.');
+	} catch (error) {
+		const detail = error instanceof Error ? error.message : '';
+		console.error('Application body could not be read:', detail || 'unknown');
+		const tooBig = /too large|payload|body limit|max(?:imum)? size|413/i.test(detail);
+		return fail(
+			context,
+			400,
+			'invalid_application',
+			tooBig
+				? 'Resume must be 10 MB or smaller.'
+				: 'The application could not be read. Fill in every required field and attach a PDF, DOC, or DOCX resume of 10 MB or smaller.',
+		);
 	}
 
 	const parsed = await parseApplication(body);

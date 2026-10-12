@@ -112,7 +112,7 @@ export function applicationFormData(form: HTMLFormElement): { ok: true; body: Fo
 	if (errors.length > 0) {
 		return {
 			ok: false,
-			message: errors[0]?.message ?? 'Check the application fields and try again.',
+			message: errors.map((error) => error.message).join(' '),
 			targets: errors.map((error) => error.target).filter(Boolean),
 		};
 	}
