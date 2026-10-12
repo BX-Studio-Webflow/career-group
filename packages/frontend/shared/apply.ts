@@ -1,4 +1,4 @@
-export const MAX_RESUME_BYTES = 4 * 1024 * 1024;
+export const MAX_RESUME_BYTES = 10 * 1024 * 1024;
 
 const RESUME_EXTENSIONS = new Set(['pdf', 'doc', 'docx']);
 
@@ -22,7 +22,7 @@ function isHttpUrl(value: string): boolean {
 
 function resumeError(file: File): string | null {
 	if (file.size > MAX_RESUME_BYTES) {
-		return 'Resume must be 4 MB or smaller.';
+		return 'Resume must be 10 MB or smaller.';
 	}
 
 	const extension = file.name.split('.').pop()?.toLowerCase() ?? '';

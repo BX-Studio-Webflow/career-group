@@ -51,6 +51,7 @@ class FakeBullhorn {
 	createdSubmissions = 0;
 	fileUploads = 0;
 	fileTargets: string[] = [];
+	fileTypes: string[] = [];
 	lastCandidate: unknown = null;
 	resumeStatus = 200;
 	geocodeStatus = 'OK';
@@ -142,6 +143,7 @@ class FakeBullhorn {
 		if (url.pathname.includes('/file/Candidate/') || url.pathname.includes('/file/JobSubmission/')) {
 			this.fileUploads += 1;
 			this.fileTargets.push(url.pathname);
+			this.fileTypes.push(url.searchParams.get('fileType') ?? '');
 			return new Response(null, { status: this.resumeStatus });
 		}
 
@@ -422,8 +424,8 @@ describe('POST /api/jobs/:id/apply', () => {
 		expect(body.ok).toBe(true);
 		expect(body.resumeAttached).toBe(false);
 		expect(fake.createdSubmissions).toBe(1);
-		expect(fake.fileUploads).toBe(2);
-		expect(fake.fileTargets.some((path) => path.includes('/file/JobSubmission/'))).toBe(true);
+		expect(fake.fileUploads).toBe(1);
+		expect(fake.fileTargets.some((path) => path.includes('/file/Candidate/'))).toBe(true);
 	});
 
 	it('rejects an invalid email before calling Bullhorn', async () => {
@@ -444,12 +446,12 @@ describe('POST /api/jobs/:id/apply', () => {
 		expect(fake.createdCandidates).toBe(0);
 	});
 
-	it('rejects a resume over 4 MB before calling Bullhorn', async () => {
+	it('rejects a resume over 10 MB before calling Bullhorn', async () => {
 		const file = new File([new Uint8Array(MAX_RESUME_BYTES + 1)], 'ada.pdf', { type: 'application/pdf' });
 		const response = await app.request('/api/jobs/10/apply', { method: 'POST', body: application({}, file) });
 		expect(response.status).toBe(400);
 		const body = (await response.json()) as { message: string };
-		expect(body.message).toBe('Resume must be 4 MB or smaller.');
+		expect(body.message).toBe('Resume must be 10 MB or smaller.');
 		expect(fake.calls).toHaveLength(0);
 	});
 
@@ -475,9 +477,8 @@ describe('POST /api/jobs/:id/apply', () => {
 			customText8: 'https://www.linkedin.com/in/ada',
 			companyURL: 'https://ada.example',
 		});
-		expect(fake.fileTargets).toEqual(
-			expect.arrayContaining([expect.stringContaining('/file/JobSubmission/8/raw'), expect.stringContaining('/file/Candidate/5/raw')]),
-		);
+		expect(fake.fileTargets).toEqual([expect.stringContaining('/file/Candidate/5/raw')]);
+		expect(fake.fileTypes).toEqual(['Resume']);
 	});
 
 	it('keeps one candidate when the same email applies to two jobs', async () => {
@@ -489,7 +490,7 @@ describe('POST /api/jobs/:id/apply', () => {
 		expect(fake.createdCandidates).toBe(1);
 		expect(fake.updatedCandidates).toBe(1);
 		expect(fake.createdSubmissions).toBe(2);
-		expect(fake.fileTargets.filter((path) => path.includes('/file/JobSubmission/'))).toHaveLength(2);
+		expect(fake.fileTargets.filter((path) => path.includes('/file/Candidate/'))).toHaveLength(2);
 	});
 
 	it('rejects a missing phone and an unknown referral', async () => {

@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { parseJobId } from './bullhorn/ids.js';
 import type { ListQuery } from './bullhorn/map.js';
 
-export const MAX_RESUME_BYTES = 4 * 1024 * 1024;
+export const MAX_RESUME_BYTES = 10 * 1024 * 1024;
 
 const RESUME_EXTENSIONS = new Set(['pdf', 'doc', 'docx']);
 
@@ -230,7 +230,7 @@ async function parseResume(value: unknown): Promise<{ ok: true; file: ResumeFile
 	}
 
 	if (value.size > MAX_RESUME_BYTES) {
-		return { ok: false, message: 'Resume must be 4 MB or smaller.' };
+		return { ok: false, message: 'Resume must be 10 MB or smaller.' };
 	}
 
 	const extension = resumeExtension(value.name);

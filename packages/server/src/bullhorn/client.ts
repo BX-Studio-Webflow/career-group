@@ -252,8 +252,10 @@ export class BullhornClient {
 
 		const candidateId = await this.findOrCreateCandidate(application);
 		const existing = await this.findSubmission(candidateId, jobId);
-		const submissionId = existing ?? (await this.createSubmission(candidateId, jobId));
-		const resumeAttached = await this.attachResume(candidateId, submissionId, resume);
+		if (existing === null) {
+			await this.createSubmission(candidateId, jobId);
+		}
+		const resumeAttached = await this.attachResume(candidateId, resume);
 		return { alreadyApplied: existing !== null, resumeAttached };
 	}
 
@@ -301,35 +303,34 @@ export class BullhornClient {
 		return changedId(body);
 	}
 
-	private async attachResume(candidateId: number, submissionId: number, resume: ResumeFile | null): Promise<boolean> {
+	private async attachResume(candidateId: number, resume: ResumeFile | null): Promise<boolean> {
 		if (!resume) {
 			return true;
 		}
 
-		const onSubmission = await this.putResume('JobSubmission', submissionId, resume);
-		await this.putResume('Candidate', candidateId, resume);
-		return onSubmission;
+		return this.putResume(candidateId, resume);
 	}
 
-	private async putResume(entity: 'Candidate' | 'JobSubmission', entityId: number, resume: ResumeFile): Promise<boolean> {
+	private async putResume(candidateId: number, resume: ResumeFile): Promise<boolean> {
 		try {
+			const form = new FormData();
+			form.append('file', new Blob([new Uint8Array(resume.bytes)], { type: resume.mediaType }), resume.name);
 			const response = await this.rest(
 				'resume_upload',
-				`file/${entity}/${entityId}/raw`,
+				`file/Candidate/${candidateId}/raw`,
 				{
 					externalID: 'Resume',
-					fileType: 'SAMPLE',
+					fileType: 'Resume',
 					name: resume.name,
 				},
 				{
 					method: 'PUT',
-					headers: { 'Content-Type': resume.mediaType },
-					body: new Blob([new Uint8Array(resume.bytes)], { type: resume.mediaType }),
+					body: form,
 				},
 			);
 			if (!response.ok) {
-				await response.body?.cancel();
-				console.error(`Bullhorn resume upload failed: ${response.status}`);
+				const detail = await response.text();
+				console.error(`Bullhorn resume upload failed: ${response.status} ${detail.slice(0, 300)}`);
 				return false;
 			}
 

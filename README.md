@@ -43,7 +43,7 @@ The detail link is `?id=` on one Webflow page, by default `/dev/job-posting-dev?
 
 `near` is a city and state, such as `Austin, TX`. The API geocodes it with Google and returns published jobs within 50 miles. The radius is fixed. `GOOGLE_MAPS_API_KEY` stays on the server. An unknown place is `422` with `unresolved_location`. `location` is still an exact city match.
 
-Apply fields are `firstName`, `lastName`, `email`, `phone`, `city`, `state`, and `referral`, plus optional `linkedinUrl`, `portfolioUrl`, and `resume` (`pdf`, `doc`, or `docx`, 4 MB). Phone, city, state, and referral are required. The 4 MB cap stays under Vercel's request body limit, so a 10 MB file cannot be accepted through this API. A missing resume is fine. The resume is uploaded onto the job submission and onto the candidate. If the submission upload fails after the submission is created, the response is still `{ "ok": true, "resumeAttached": false }`.
+Apply fields are `firstName`, `lastName`, `email`, `phone`, `city`, `state`, and `referral`, plus optional `linkedinUrl`, `portfolioUrl`, and `resume` (`pdf`, `doc`, or `docx`, 10 MB). Phone, city, state, and referral are required. A missing resume is fine. The resume is uploaded onto the candidate as file type `Resume`. This Bullhorn account does not accept files on a job submission. If the upload fails after the submission is created, the response is still `{ "ok": true, "resumeAttached": false }`.
 
 `CORS_ORIGINS` is a comma-separated list, or `*`. `careergroupcompanies.com`, `webflow.io`, and their subdomains are still allowed when the list is restricted.
 
@@ -79,7 +79,7 @@ GOOGLE_MAPS_API_KEY=
 
 `BULLHORN_CANDIDATE_STATUS` is sent only when it is set. This corp uses `New Lead`.
 
-This uses the standard JobOrder, Candidate, JobSubmission, and file endpoints. It does not use the Bullhorn Open Source Career Portal, and it does not create custom fields. Resume uploads use file type `SAMPLE`.
+This uses the standard JobOrder, Candidate, JobSubmission, and file endpoints. It does not use the Bullhorn Open Source Career Portal, and it does not create custom fields. Resume uploads are multipart files on the candidate, with file type `Resume`.
 
 | Form value | Candidate field |
 | --- | --- |

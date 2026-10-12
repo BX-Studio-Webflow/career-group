@@ -59,7 +59,7 @@ async function submitApplication(id, body) {
 }
 
 // shared/apply.ts
-var MAX_RESUME_BYTES = 4 * 1024 * 1024;
+var MAX_RESUME_BYTES = 10 * 1024 * 1024;
 var RESUME_EXTENSIONS = /* @__PURE__ */ new Set(["pdf", "doc", "docx"]);
 function value(form2, target) {
   const field = form2.querySelector(`[dev-target="${target}"]`);
@@ -78,7 +78,7 @@ function isHttpUrl(value2) {
 }
 function resumeError(file) {
   if (file.size > MAX_RESUME_BYTES) {
-    return "Resume must be 4 MB or smaller.";
+    return "Resume must be 10 MB or smaller.";
   }
   const extension = file.name.split(".").pop()?.toLowerCase() ?? "";
   if (!RESUME_EXTENSIONS.has(extension)) {
