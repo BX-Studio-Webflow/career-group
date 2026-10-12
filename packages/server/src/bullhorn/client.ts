@@ -3,6 +3,7 @@ import { request as httpsRequest } from 'node:https';
 
 import { geocode, UnresolvedPlaceError, withinRadius } from '../geo.js';
 import type { ApplicationInput, ResumeFile } from '../validate.js';
+import { candidateFields } from './application.js';
 import type { BullhornConfig } from './config.js';
 import { DETAIL_FIELDS, LIST_FIELDS } from './fields.js';
 import { quoteWhere } from './ids.js';
@@ -243,36 +244,24 @@ export class BullhornClient {
 
 		const candidateId = await this.findOrCreateCandidate(application);
 		const existing = await this.findSubmission(candidateId, jobId);
-		if (existing) {
-			const resumeAttached = await this.attachResume(candidateId, resume);
-			return { alreadyApplied: true, resumeAttached };
-		}
-
-		await this.createSubmission(candidateId, jobId);
-		const resumeAttached = await this.attachResume(candidateId, resume);
-		return { alreadyApplied: false, resumeAttached };
+		const submissionId = existing ?? (await this.createSubmission(candidateId, jobId));
+		const resumeAttached = await this.attachResume(candidateId, submissionId, resume);
+		return { alreadyApplied: existing !== null, resumeAttached };
 	}
 
 	private async findOrCreateCandidate(application: ApplicationInput): Promise<number> {
 		const existing = await this.findCandidate(application.email);
 		if (existing) {
+			await this.sendJson('candidate_update', 'POST', `entity/Candidate/${existing}`, candidateFields(application));
 			return existing;
 		}
 
-		const payload: Record<string, string> = {
-			firstName: application.firstName,
-			lastName: application.lastName,
-			name: `${application.firstName} ${application.lastName}`,
-			email: application.email,
-		};
-		if (application.phone) {
-			payload.phone = application.phone;
-		}
-		if (this.config.candidateStatus) {
-			payload.status = this.config.candidateStatus;
-		}
-
-		const body = await this.sendJson('candidate_create', 'PUT', 'entity/Candidate', payload);
+		const body = await this.sendJson(
+			'candidate_create',
+			'PUT',
+			'entity/Candidate',
+			candidateFields(application, this.config.candidateStatus || undefined),
+		);
 		return changedId(body);
 	}
 
@@ -294,24 +283,31 @@ export class BullhornClient {
 		return firstId(body);
 	}
 
-	private async createSubmission(candidateId: number, jobId: number): Promise<void> {
-		await this.sendJson('submission_create', 'PUT', 'entity/JobSubmission', {
+	private async createSubmission(candidateId: number, jobId: number): Promise<number> {
+		const body = await this.sendJson('submission_create', 'PUT', 'entity/JobSubmission', {
 			candidate: { id: candidateId },
 			jobOrder: { id: jobId },
 			status: this.config.submissionStatus,
 			dateWebResponse: Date.now(),
 		});
+		return changedId(body);
 	}
 
-	private async attachResume(candidateId: number, resume: ResumeFile | null): Promise<boolean> {
+	private async attachResume(candidateId: number, submissionId: number, resume: ResumeFile | null): Promise<boolean> {
 		if (!resume) {
 			return true;
 		}
 
+		const onSubmission = await this.putResume('JobSubmission', submissionId, resume);
+		await this.putResume('Candidate', candidateId, resume);
+		return onSubmission;
+	}
+
+	private async putResume(entity: 'Candidate' | 'JobSubmission', entityId: number, resume: ResumeFile): Promise<boolean> {
 		try {
 			const response = await this.rest(
 				'resume_upload',
-				`file/Candidate/${candidateId}/raw`,
+				`file/${entity}/${entityId}/raw`,
 				{
 					externalID: 'Resume',
 					fileType: 'SAMPLE',

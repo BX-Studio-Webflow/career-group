@@ -129,11 +129,16 @@ export async function submitApplication(id: string, body: FormData): Promise<App
 		headers: { Accept: 'application/json' },
 		body,
 	});
-	const payload = (await response.json()) as ApplyResult & { message?: string };
-	return {
-		ok: response.ok && payload.ok === true,
-		alreadyApplied: payload.alreadyApplied,
-		resumeAttached: payload.resumeAttached,
-		message: payload.message,
-	};
+	try {
+		const payload = (await response.json()) as ApplyResult & { message?: string };
+		return {
+			ok: response.ok && payload.ok === true,
+			alreadyApplied: payload.alreadyApplied,
+			resumeAttached: payload.resumeAttached,
+			message: payload.message,
+		};
+	} catch (error) {
+		console.error('[Careers] Application response was not readable.', error);
+		return { ok: false, message: 'Your application could not be submitted. Please try again.' };
+	}
 }

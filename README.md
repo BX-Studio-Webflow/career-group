@@ -43,7 +43,9 @@ The detail link is `?id=` on one Webflow page, by default `/dev/job-posting-dev?
 
 `near` is a city and state, such as `Austin, TX`. The API geocodes it with Google and returns published jobs within 50 miles. The radius is fixed. `GOOGLE_MAPS_API_KEY` stays on the server. An unknown place is `422` with `unresolved_location`. `location` is still an exact city match.
 
-Apply fields are `firstName`, `lastName`, `email`, `phone`, and an optional `resume` (`pdf`, `doc`, or `docx`, 4 MB). The 4 MB cap stays under Vercel's request body limit. A missing resume is fine. If the resume upload fails after the submission is created, the response is still `{ "ok": true, "resumeAttached": false }`.
+Apply fields are `firstName`, `lastName`, `email`, `phone`, `city`, `state`, and `referral`, plus optional `linkedinUrl`, `portfolioUrl`, and `resume` (`pdf`, `doc`, or `docx`, 4 MB). Phone, city, state, and referral are required. The 4 MB cap stays under Vercel's request body limit, so a 10 MB file cannot be accepted through this API. A missing resume is fine. The resume is uploaded onto the job submission and onto the candidate. If the submission upload fails after the submission is created, the response is still `{ "ok": true, "resumeAttached": false }`.
+
+The form is protected with the Cloudflare Turnstile widget already on the Webflow form. The browser sends `cf-turnstile-response`. The API calls siteverify and rejects a missing, reused, or failed token, and a token whose hostname is not `careergroupcompanies.com`, `www.careergroupcompanies.com`, a `*.webflow.io` host, or a host listed in `TURNSTILE_HOSTNAMES`. Set `TURNSTILE_SECRET` to that widget's secret.
 
 `CORS_ORIGINS` is a comma-separated list, or `*`. `careergroupcompanies.com`, `webflow.io`, and their subdomains are still allowed when the list is restricted.
 
@@ -75,11 +77,22 @@ BULLHORN_SUBMISSION_STATUS=Web Response
 BULLHORN_CANDIDATE_STATUS=New Lead
 CORS_ORIGINS=https://www.careergroupcompanies.com,https://careergroupcompanies.com
 GOOGLE_MAPS_API_KEY=
+TURNSTILE_SECRET=
 ```
 
 `BULLHORN_CANDIDATE_STATUS` is sent only when it is set. This corp uses `New Lead`.
 
 This uses the standard JobOrder, Candidate, JobSubmission, and file endpoints. It does not use the Bullhorn Open Source Career Portal, and it does not create custom fields. Resume uploads use file type `SAMPLE`.
+
+| Form value | Candidate field |
+| --- | --- |
+| First name, last name, email, phone | `firstName`, `lastName`, `email`, `phone` |
+| City, state | `address.city`, `address.state` |
+| Referral | `source` (Referral Source). The form labels are mapped onto the existing picklist: Instagram stays Instagram, Internet Search becomes Internet/Google Search, LinkedIn becomes LinkedIn Search, Referred by a peer becomes Referral - Applicant referred Applicant, and I'm an existing candidate, Email Marketing, Pinterest, and Others become Other. |
+| LinkedIn URL | `customText8` (Linkedin), 100 characters |
+| Portfolio URL | `companyURL` (Website/Portfolio Link), 100 characters |
+
+A second application with the same email updates those candidate fields and adds another job submission. It does not create a second candidate, and it does not create a second submission for the same job. The same resume file is uploaded onto each new submission.
 
 ### Limits
 
@@ -155,14 +168,22 @@ Detail markup. The page URL is `/dev/job-posting-dev?id=123` for as long as that
 <h1 dev-target="job-title"></h1>
 <div dev-target="job-description"></div>
 
-<form dev-target="apply-form">
-	<input name="firstName" required />
-	<input name="lastName" required />
-	<input name="email" type="email" required />
-	<input name="phone" />
-	<input name="resume" type="file" accept=".pdf,.doc,.docx" />
-	<button type="submit">Apply</button>
+<form dev-target="apply-form" data-turnstile-sitekey="...">
+	<input dev-target="first-name" required />
+	<input dev-target="last-name" required />
+	<input dev-target="email" type="email" required />
+	<input dev-target="phone" type="tel" required />
+	<input dev-target="city" required />
+	<input dev-target="state" required />
+	<select dev-target="referral" required></select>
+	<input dev-target="file-upload" type="file" accept=".pdf,.doc,.docx" />
+	<input dev-target="linkedin-url" type="url" />
+	<input dev-target="porfolio" type="url" />
+	<input type="submit" value="Submit" />
 </form>
+<div dev-target="form-error-wrapper" class="hide">
+	<p dev-target="form-error-text"></p>
+</div>
 <p dev-target="apply-success" class="hide"></p>
 
 <div dev-target="error-wrapper" class="hide">

@@ -2,10 +2,15 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import app from '../src/app.js';
 import { resetBullhornState } from '../src/bullhorn/client.js';
+import { MAX_RESUME_BYTES } from '../src/validate.js';
 import { escapeLucene, geocodePlace, mapJob, publishedJobsQuery } from '../src/bullhorn/map.js';
 import { resetGeocodeCache } from '../src/geo.js';
 
 const REST = 'https://rest91.bullhornstaffing.com/rest-services/corp/';
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+	return Boolean(value) && typeof value === 'object';
+}
 const ENV_KEYS = [
 	'BULLHORN_CLIENT_ID',
 	'BULLHORN_CLIENT_SECRET',
@@ -15,6 +20,8 @@ const ENV_KEYS = [
 	'BULLHORN_CANDIDATE_STATUS',
 	'CORS_ORIGINS',
 	'GOOGLE_MAPS_API_KEY',
+	'TURNSTILE_SECRET',
+	'TURNSTILE_HOSTNAMES',
 ] as const;
 
 function publishedJob(id: number, extra: Record<string, unknown> = {}) {
@@ -39,10 +46,14 @@ class FakeBullhorn {
 	calls: string[] = [];
 	urls: string[] = [];
 	candidate: { id: number; email: string } | null = null;
-	submissions = new Set<string>();
+	submissionIds = new Map<string, number>();
+	nextSubmissionId = 8;
 	createdCandidates = 0;
+	updatedCandidates = 0;
 	createdSubmissions = 0;
 	fileUploads = 0;
+	fileTargets: string[] = [];
+	lastCandidate: unknown = null;
 	resumeStatus = 200;
 	geocodeStatus = 'OK';
 	geocodeKeys: string[] = [];
@@ -82,11 +93,12 @@ class FakeBullhorn {
 			return Response.json({ total: this.searchRows.length, data: this.searchRows });
 		}
 
-		if (url.pathname.endsWith('/entity/JobOrder/10')) {
+		const jobMatch = url.pathname.match(/\/entity\/JobOrder\/(\d+)$/);
+		if (jobMatch) {
 			if (!this.job) {
 				return new Response('missing', { status: 404 });
 			}
-			return Response.json({ data: this.job });
+			return Response.json({ data: { ...this.job, id: Number(jobMatch[1]) } });
 		}
 
 		if (url.pathname.endsWith('/query/Candidate')) {
@@ -96,25 +108,63 @@ class FakeBullhorn {
 
 		if (url.pathname.endsWith('/entity/Candidate') && method === 'PUT') {
 			this.createdCandidates += 1;
-			this.candidate = { id: 5, email: 'ada@example.com' };
+			this.lastCandidate = typeof init?.body === 'string' ? JSON.parse(init.body) : null;
+			const email =
+				isRecord(this.lastCandidate) && typeof this.lastCandidate.email === 'string' ? this.lastCandidate.email : 'ada@example.com';
+			this.candidate = { id: 5, email };
+			return Response.json({ changedEntityId: 5 });
+		}
+
+		if (/\/entity\/Candidate\/\d+$/.test(url.pathname) && method === 'POST') {
+			this.updatedCandidates += 1;
+			this.lastCandidate = typeof init?.body === 'string' ? JSON.parse(init.body) : null;
 			return Response.json({ changedEntityId: 5 });
 		}
 
 		if (url.pathname.endsWith('/query/JobSubmission')) {
-			const id = this.submissions.has('5:10') ? 8 : null;
+			const where = url.searchParams.get('where') ?? '';
+			const candidateId = where.match(/candidate\.id=(\d+)/)?.[1] ?? '';
+			const jobId = where.match(/jobOrder\.id=(\d+)/)?.[1] ?? '';
+			const id = this.submissionIds.get(`${candidateId}:${jobId}`);
 			return Response.json({ total: id ? 1 : 0, data: id ? [{ id }] : [] });
 		}
 
 		if (url.pathname.endsWith('/entity/JobSubmission') && method === 'PUT') {
 			this.createdSubmissions += 1;
-			this.submissions.add('5:10');
 			this.lastSubmission = typeof init?.body === 'string' ? JSON.parse(init.body) : null;
-			return Response.json({ changedEntityId: 8 });
+			const submission = isRecord(this.lastSubmission) ? this.lastSubmission : {};
+			const candidate = isRecord(submission.candidate) ? submission.candidate : {};
+			const jobOrder = isRecord(submission.jobOrder) ? submission.jobOrder : {};
+			const id = this.nextSubmissionId;
+			this.nextSubmissionId += 1;
+			this.submissionIds.set(`${String(candidate.id)}:${String(jobOrder.id)}`, id);
+			return Response.json({ changedEntityId: id });
 		}
 
-		if (url.pathname.includes('/file/Candidate/')) {
+		if (url.pathname.includes('/file/Candidate/') || url.pathname.includes('/file/JobSubmission/')) {
 			this.fileUploads += 1;
+			this.fileTargets.push(url.pathname);
 			return new Response(null, { status: this.resumeStatus });
+		}
+
+		if (url.hostname === 'challenges.cloudflare.com') {
+			const params =
+				typeof init?.body === 'string'
+					? new URLSearchParams(init.body)
+					: init?.body instanceof URLSearchParams
+						? init.body
+						: new URLSearchParams();
+			const token = params.get('response') ?? '';
+			if (token === 'token') {
+				return Response.json({ success: true, hostname: 'www.careergroupcompanies.com' });
+			}
+			if (token === 'bad-host') {
+				return Response.json({ success: true, hostname: 'evil.example' });
+			}
+			if (token === 'down') {
+				return new Response('down', { status: 500 });
+			}
+			return Response.json({ success: false, 'error-codes': ['invalid-input-response'] });
 		}
 
 		if (url.hostname === 'maps.googleapis.com') {
@@ -150,7 +200,9 @@ function setEnv(): void {
 	process.env.BULLHORN_API_USERNAME = 'api-user';
 	process.env.BULLHORN_API_PASSWORD = 'api-password';
 	process.env.BULLHORN_SUBMISSION_STATUS = 'Web Response';
+	process.env.TURNSTILE_SECRET = 'test-secret';
 	delete process.env.BULLHORN_CANDIDATE_STATUS;
+	delete process.env.TURNSTILE_HOSTNAMES;
 	delete process.env.CORS_ORIGINS;
 	delete process.env.GOOGLE_MAPS_API_KEY;
 }
@@ -167,8 +219,20 @@ function application(fields: Record<string, string> = {}, file?: File): FormData
 	form.set('lastName', fields.lastName ?? 'Lovelace');
 	form.set('email', fields.email ?? 'ada@example.com');
 	form.set('phone', fields.phone ?? '555-0100');
+	form.set('city', fields.city ?? 'Austin');
+	form.set('state', fields.state ?? 'TX');
+	form.set('referral', fields.referral ?? 'Instagram');
+	if (fields.linkedinUrl) {
+		form.set('linkedinUrl', fields.linkedinUrl);
+	}
+	if (fields.portfolioUrl) {
+		form.set('portfolioUrl', fields.portfolioUrl);
+	}
 	if (file) {
 		form.set('resume', file);
+	}
+	if (fields.turnstile !== '') {
+		form.set('cf-turnstile-response', fields.turnstile ?? 'token');
 	}
 	return form;
 }
@@ -205,12 +269,12 @@ describe('published job query', () => {
 		expect(mapJob(publishedJob(10))?.preview).toBe('Hello');
 		expect(mapJob(publishedJob(10, { customText4: 'Short blurb' }))?.preview).toBe('Short blurb');
 		expect(mapJob(publishedJob(10))?.location).toBe('Austin, TX');
-		expect(
-			mapJob(publishedJob(10, { address: { city: 'Miami', state: 'FL', countryName: '- None Specified -' } }))?.location,
-		).toBe('Miami, FL');
-		expect(mapJob(publishedJob(10, { address: { city: 'San Francisco', state: 'California', countryName: 'United States' } }))?.location).toBe(
-			'San Francisco, CA',
+		expect(mapJob(publishedJob(10, { address: { city: 'Miami', state: 'FL', countryName: '- None Specified -' } }))?.location).toBe(
+			'Miami, FL',
 		);
+		expect(
+			mapJob(publishedJob(10, { address: { city: 'San Francisco', state: 'California', countryName: 'United States' } }))?.location,
+		).toBe('San Francisco, CA');
 		expect(mapJob(publishedJob(10, { address: { city: 'London', state: '', countryName: 'United Kingdom' } }))?.location).toBe(
 			'London, United Kingdom',
 		);
@@ -265,7 +329,11 @@ describe('GET /api/jobs', () => {
 				address: { city: 'Round Rock', state: 'TX', zip: '78664', countryName: 'United States' },
 			}),
 			publishedJob(13, { title: 'Dallas Role', address: { city: 'Dallas', state: 'TX', zip: '75201', countryName: 'United States' } }),
-			publishedJob(14, { title: 'Hidden', isPublic: false, address: { city: 'Austin', state: 'TX', zip: '78701', countryName: 'United States' } }),
+			publishedJob(14, {
+				title: 'Hidden',
+				isPublic: false,
+				address: { city: 'Austin', state: 'TX', zip: '78701', countryName: 'United States' },
+			}),
 			publishedJob(15, {
 				title: 'Future',
 				customDate1: Date.now() + 86_400_000,
@@ -363,7 +431,7 @@ describe('POST /api/jobs/:id/apply', () => {
 
 	it('does not create a second submission for the same job', async () => {
 		fake.candidate = { id: 5, email: 'ada@example.com' };
-		fake.submissions.add('5:10');
+		fake.submissionIds.set('5:10', 8);
 		const response = await app.request('/api/jobs/10/apply', { method: 'POST', body: application() });
 		const body = (await response.json()) as { alreadyApplied: boolean };
 		expect(response.status).toBe(200);
@@ -381,7 +449,8 @@ describe('POST /api/jobs/:id/apply', () => {
 		expect(body.ok).toBe(true);
 		expect(body.resumeAttached).toBe(false);
 		expect(fake.createdSubmissions).toBe(1);
-		expect(fake.fileUploads).toBe(1);
+		expect(fake.fileUploads).toBe(2);
+		expect(fake.fileTargets.some((path) => path.includes('/file/JobSubmission/'))).toBe(true);
 	});
 
 	it('rejects an invalid email before calling Bullhorn', async () => {
@@ -397,7 +466,93 @@ describe('POST /api/jobs/:id/apply', () => {
 		const file = new File(['notes'], 'notes.txt', { type: 'text/plain' });
 		const response = await app.request('/api/jobs/10/apply', { method: 'POST', body: application({}, file) });
 		expect(response.status).toBe(400);
+		const body = (await response.json()) as { message: string };
+		expect(body.message).toBe('Resume must be a PDF, DOC, or DOCX file.');
 		expect(fake.createdCandidates).toBe(0);
+	});
+
+	it('rejects a resume over 4 MB before calling Bullhorn', async () => {
+		const file = new File([new Uint8Array(MAX_RESUME_BYTES + 1)], 'ada.pdf', { type: 'application/pdf' });
+		const response = await app.request('/api/jobs/10/apply', { method: 'POST', body: application({}, file) });
+		expect(response.status).toBe(400);
+		const body = (await response.json()) as { message: string };
+		expect(body.message).toBe('Resume must be 4 MB or smaller.');
+		expect(fake.calls).toHaveLength(0);
+	});
+
+	it('maps the form onto the candidate and attaches the resume to the application', async () => {
+		const file = new File(['resume'], 'ada.docx', { type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' });
+		const response = await app.request('/api/jobs/10/apply', {
+			method: 'POST',
+			body: application(
+				{
+					referral: 'LinkedIn',
+					linkedinUrl: 'https://www.linkedin.com/in/ada',
+					portfolioUrl: 'https://ada.example',
+				},
+				file,
+			),
+		});
+		expect(response.status).toBe(200);
+		expect(fake.lastCandidate).toMatchObject({
+			email: 'ada@example.com',
+			phone: '555-0100',
+			address: { city: 'Austin', state: 'TX' },
+			source: 'LinkedIn\u00a0Search',
+			customText8: 'https://www.linkedin.com/in/ada',
+			companyURL: 'https://ada.example',
+		});
+		expect(fake.fileTargets).toEqual(
+			expect.arrayContaining([expect.stringContaining('/file/JobSubmission/8/raw'), expect.stringContaining('/file/Candidate/5/raw')]),
+		);
+	});
+
+	it('keeps one candidate when the same email applies to two jobs', async () => {
+		const file = new File(['resume'], 'ada.pdf', { type: 'application/pdf' });
+		const first = await app.request('/api/jobs/10/apply', { method: 'POST', body: application({}, file) });
+		const second = await app.request('/api/jobs/12/apply', { method: 'POST', body: application({}, file) });
+		expect(first.status).toBe(200);
+		expect(second.status).toBe(200);
+		expect(fake.createdCandidates).toBe(1);
+		expect(fake.updatedCandidates).toBe(1);
+		expect(fake.createdSubmissions).toBe(2);
+		expect(fake.fileTargets.filter((path) => path.includes('/file/JobSubmission/'))).toHaveLength(2);
+	});
+
+	it('rejects a missing phone and an unknown referral', async () => {
+		const missingPhone = await app.request('/api/jobs/10/apply', { method: 'POST', body: application({ phone: '' }) });
+		const unknownReferral = await app.request('/api/jobs/10/apply', { method: 'POST', body: application({ referral: 'Billboard' }) });
+		expect(missingPhone.status).toBe(400);
+		expect(((await missingPhone.json()) as { message: string }).message).toBe('Enter a phone number.');
+		expect(unknownReferral.status).toBe(400);
+		expect(((await unknownReferral.json()) as { message: string }).message).toBe('Select how you heard about us.');
+		expect(fake.calls).toHaveLength(0);
+	});
+
+	it('rejects a missing or mismatched Turnstile token', async () => {
+		const missing = await app.request('/api/jobs/10/apply', { method: 'POST', body: application({ turnstile: '' }) });
+		const mismatched = await app.request('/api/jobs/10/apply', { method: 'POST', body: application({ turnstile: 'bad-host' }) });
+		expect(missing.status).toBe(400);
+		expect(mismatched.status).toBe(400);
+		expect(((await mismatched.json()) as { message: string }).message).toBe('Security check failed. Please try again.');
+		expect(fake.createdCandidates).toBe(0);
+	});
+
+	it('rejects the application when Turnstile is unavailable', async () => {
+		const response = await app.request('/api/jobs/10/apply', { method: 'POST', body: application({ turnstile: 'down' }) });
+		expect(response.status).toBe(502);
+		const body = (await response.json()) as { error: string };
+		expect(body.error).toBe('turnstile_unavailable');
+		expect(fake.createdCandidates).toBe(0);
+	});
+
+	it('fails closed when the Turnstile secret is missing', async () => {
+		delete process.env.TURNSTILE_SECRET;
+		const response = await app.request('/api/jobs/10/apply', { method: 'POST', body: application() });
+		expect(response.status).toBe(500);
+		const body = (await response.json()) as { error: string };
+		expect(body.error).toBe('configuration_error');
+		expect(fake.calls).toHaveLength(0);
 	});
 });
 

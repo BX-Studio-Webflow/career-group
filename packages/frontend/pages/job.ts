@@ -1,6 +1,7 @@
 import { fetchJob, submitApplication } from '../shared/api';
+import { applicationFormData, resetTurnstile } from '../shared/apply';
 import { divisionChipColor } from '../shared/divisions';
-import { bindErrorCancel, hideError, showError } from '../shared/errors';
+import { bindErrorCancel, hideError, hideFormError, showError, showFormError } from '../shared/errors';
 import { formatSalaryRange } from '../shared/jobs';
 
 const DIVISION_CARDS: Record<string, string> = {
@@ -52,7 +53,15 @@ function setText(target: string, value: string): void {
 	}
 }
 
-function fillJob(title: string, location: string, employmentType: string, category: string, salary: string, description: string, division: string): void {
+function fillJob(
+	title: string,
+	location: string,
+	employmentType: string,
+	category: string,
+	salary: string,
+	description: string,
+	division: string,
+): void {
 	setText('job-title', title);
 	setText('job-location', location);
 	setText('job-type', employmentType);
@@ -95,6 +104,7 @@ function showDivisionCard(division: string): void {
 }
 
 function showSuccess(message: string): void {
+	hideFormError();
 	const success = document.querySelector<HTMLElement>(SUCCESS_SELECTOR);
 	if (!success) {
 		showError(message);
@@ -106,47 +116,81 @@ function showSuccess(message: string): void {
 	hideError();
 }
 
+function submitControl(form: HTMLFormElement): HTMLInputElement | HTMLButtonElement | null {
+	return form.querySelector<HTMLInputElement | HTMLButtonElement>('input[type="submit"], button[type="submit"]');
+}
+
+function setSubmitting(submit: HTMLInputElement | HTMLButtonElement, waiting: boolean, label: string): void {
+	submit.disabled = waiting;
+	if (submit instanceof HTMLInputElement) {
+		submit.value = label;
+		return;
+	}
+
+	submit.textContent = label;
+}
+
 function bindForm(form: HTMLFormElement, id: string): void {
-	form.addEventListener('submit', (event) => {
-		event.preventDefault();
-		const submit = form.querySelector<HTMLButtonElement>('button[type="submit"]');
-		if (submit) {
-			submit.disabled = true;
-		}
+	form.noValidate = true;
+	hideFormError();
+	form.addEventListener(
+		'submit',
+		(event) => {
+			event.preventDefault();
+			event.stopPropagation();
+			const submit = submitControl(form);
+			const label = submit instanceof HTMLInputElement ? submit.value : (submit?.textContent ?? '');
+			const waiting = submit?.getAttribute('data-wait') || 'Please wait...';
+			if (submit) {
+				setSubmitting(submit, true, waiting);
+			}
 
-		void submitApplication(id, new FormData(form))
-			.then((result) => {
-				if (!result.ok) {
-					showError(result.message || 'Your application could not be submitted. Please try again.');
-					return;
-				}
-
-				if (result.alreadyApplied && result.resumeAttached === false) {
-					showSuccess('You already applied for this job, and the resume could not be attached.');
-					return;
-				}
-				if (result.alreadyApplied) {
-					showSuccess('You already applied for this job.');
-					return;
-				}
-				if (result.resumeAttached === false) {
-					showSuccess('Your application was submitted, but the resume could not be attached.');
-					return;
-				}
-
-				showSuccess('Your application was submitted.');
-				form.reset();
-			})
-			.catch((error: unknown) => {
-				console.error('[Careers] Application failed', error);
-				showError('Your application could not be submitted. Please try again.');
-			})
-			.finally(() => {
+			const parsed = applicationFormData(form);
+			if (!parsed.ok) {
+				showFormError(parsed.message);
 				if (submit) {
-					submit.disabled = false;
+					setSubmitting(submit, false, label);
 				}
-			});
-	});
+				return;
+			}
+
+			void submitApplication(id, parsed.body)
+				.then((result) => {
+					resetTurnstile(form);
+					if (!result.ok) {
+						showFormError(result.message || 'Your application could not be submitted. Please try again.');
+						return;
+					}
+
+					if (result.alreadyApplied && result.resumeAttached === false) {
+						showSuccess('You already applied for this job, and the resume could not be attached.');
+						return;
+					}
+					if (result.alreadyApplied) {
+						showSuccess('You already applied for this job.');
+						return;
+					}
+					if (result.resumeAttached === false) {
+						showSuccess('Your application was submitted, but the resume could not be attached.');
+						return;
+					}
+
+					showSuccess('Your application was submitted.');
+					form.reset();
+				})
+				.catch((error: unknown) => {
+					resetTurnstile(form);
+					console.error('[Careers] Application failed', error);
+					showFormError('Your application could not be submitted. Please try again.');
+				})
+				.finally(() => {
+					if (submit) {
+						setSubmitting(submit, false, label);
+					}
+				});
+		},
+		true,
+	);
 }
 
 const form = document.querySelector<HTMLFormElement>(FORM_SELECTOR);
@@ -167,7 +211,15 @@ if (form || description) {
 					return;
 				}
 
-				fillJob(job.title, job.location, job.employmentType, job.category, formatSalaryRange(job), job.description, job.division?.trim() ?? '');
+				fillJob(
+					job.title,
+					job.location,
+					job.employmentType,
+					job.category,
+					formatSalaryRange(job),
+					job.description,
+					job.division?.trim() ?? '',
+				);
 				if (form) {
 					bindForm(form, id);
 				}

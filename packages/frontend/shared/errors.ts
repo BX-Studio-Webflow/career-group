@@ -18,6 +18,39 @@ export function hideError(): void {
 	document.querySelector<HTMLElement>(ERROR_WRAPPER_SELECTOR)?.classList.add('hide');
 }
 
+const FORM_ERROR_WRAPPER_SELECTOR = '[dev-target="form-error-wrapper"]';
+
+function formErrorText(wrapper: HTMLElement): HTMLElement {
+	return (
+		wrapper.querySelector<HTMLElement>('[dev-target="form-error-text"]') ??
+		wrapper.querySelector<HTMLElement>('[dev-target="error-text"]') ??
+		wrapper.querySelector<HTMLElement>('p, span, div') ??
+		wrapper
+	);
+}
+
+export function showFormError(message: string): void {
+	const wrapper = document.querySelector<HTMLElement>(FORM_ERROR_WRAPPER_SELECTOR);
+	if (!wrapper) {
+		showError(message);
+		return;
+	}
+
+	const text = formErrorText(wrapper);
+	if (text === wrapper && wrapper.childElementCount > 0) {
+		showError(message);
+		return;
+	}
+
+	text.textContent = message;
+	wrapper.classList.remove('hide');
+	document.querySelector<HTMLElement>('[dev-target="apply-success"]')?.classList.add('hide');
+}
+
+export function hideFormError(): void {
+	document.querySelector<HTMLElement>(FORM_ERROR_WRAPPER_SELECTOR)?.classList.add('hide');
+}
+
 export function bindErrorCancel(): void {
 	document.querySelectorAll<HTMLElement>(ERROR_CANCEL_SELECTOR).forEach((cancel) => {
 		cancel.addEventListener('click', hideError);

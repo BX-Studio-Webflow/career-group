@@ -16,11 +16,33 @@ const listQuerySchema = z.object({
 	count: z.coerce.number().int().min(1).max(200).default(50),
 });
 
+export const REFERRAL_SOURCES = [
+	"I'm an existing candidate",
+	'Instagram',
+	'Internet Search',
+	'Email Marketing',
+	'LinkedIn',
+	'Pinterest',
+	'Referred by a peer',
+	'Others',
+] as const;
+
+const optionalUrl = z
+	.string()
+	.trim()
+	.max(100)
+	.refine((value) => value === '' || isHttpUrl(value));
+
 const applicationSchema = z.object({
-	firstName: z.string().trim().min(1).max(80),
-	lastName: z.string().trim().min(1).max(80),
-	email: z.string().trim().max(200).email(),
-	phone: z.string().trim().max(40).optional(),
+	firstName: z.string().trim().min(1).max(50),
+	lastName: z.string().trim().min(1).max(50),
+	email: z.string().trim().max(100).email(),
+	phone: z.string().trim().min(1).max(50),
+	city: z.string().trim().min(1).max(100),
+	state: z.string().trim().min(1).max(100),
+	referral: z.enum(REFERRAL_SOURCES),
+	linkedinUrl: optionalUrl,
+	portfolioUrl: optionalUrl,
 });
 
 export interface ApplicationInput {
@@ -28,6 +50,11 @@ export interface ApplicationInput {
 	lastName: string;
 	email: string;
 	phone: string;
+	city: string;
+	state: string;
+	referral: (typeof REFERRAL_SOURCES)[number];
+	linkedinUrl: string;
+	portfolioUrl: string;
 }
 
 export interface ResumeFile {
@@ -38,6 +65,19 @@ export interface ResumeFile {
 
 export interface ParsedApplication extends ApplicationInput {
 	resume: ResumeFile | null;
+}
+
+function isHttpUrl(value: string): boolean {
+	try {
+		const url = new URL(value);
+		return url.protocol === 'http:' || url.protocol === 'https:';
+	} catch {
+		return false;
+	}
+}
+
+function tooLong(issue: { code: string }): boolean {
+	return issue.code === 'too_big';
 }
 
 function issueMessage(error: z.ZodError, fallback: string): string {
@@ -51,13 +91,28 @@ function issueMessage(error: z.ZodError, fallback: string): string {
 		return 'Enter a valid email address.';
 	}
 	if (field === 'firstName') {
-		return 'Enter a first name.';
+		return tooLong(issue) ? 'Enter a shorter first name.' : 'Enter a first name.';
 	}
 	if (field === 'lastName') {
-		return 'Enter a last name.';
+		return tooLong(issue) ? 'Enter a shorter last name.' : 'Enter a last name.';
 	}
 	if (field === 'phone') {
-		return 'Enter a shorter phone number.';
+		return tooLong(issue) ? 'Enter a shorter phone number.' : 'Enter a phone number.';
+	}
+	if (field === 'city') {
+		return tooLong(issue) ? 'Enter a shorter city.' : 'Enter a city.';
+	}
+	if (field === 'state') {
+		return tooLong(issue) ? 'Enter a shorter state.' : 'Enter a state.';
+	}
+	if (field === 'referral') {
+		return 'Select how you heard about us.';
+	}
+	if (field === 'linkedinUrl') {
+		return tooLong(issue) ? 'Enter a shorter LinkedIn URL.' : 'Enter a valid LinkedIn URL.';
+	}
+	if (field === 'portfolioUrl') {
+		return tooLong(issue) ? 'Enter a shorter portfolio URL.' : 'Enter a valid portfolio URL.';
 	}
 	if (field === 'q' || field === 'location' || field === 'category' || field === 'near' || field === 'start' || field === 'count') {
 		return 'Those filters are not valid.';
@@ -136,6 +191,11 @@ export async function parseApplication(
 		lastName: fieldText(body.lastName),
 		email: fieldText(body.email),
 		phone: fieldText(body.phone),
+		city: fieldText(body.city),
+		state: fieldText(body.state),
+		referral: fieldText(body.referral),
+		linkedinUrl: fieldText(body.linkedinUrl),
+		portfolioUrl: fieldText(body.portfolioUrl),
 	});
 
 	if (!parsed.success) {
@@ -153,7 +213,12 @@ export async function parseApplication(
 			firstName: parsed.data.firstName,
 			lastName: parsed.data.lastName,
 			email: parsed.data.email.toLowerCase(),
-			phone: parsed.data.phone ?? '',
+			phone: parsed.data.phone,
+			city: parsed.data.city,
+			state: parsed.data.state,
+			referral: parsed.data.referral,
+			linkedinUrl: parsed.data.linkedinUrl,
+			portfolioUrl: parsed.data.portfolioUrl,
 			resume: resume.file,
 		},
 	};
