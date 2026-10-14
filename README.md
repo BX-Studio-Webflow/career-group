@@ -117,6 +117,14 @@ reCAPTCHA v3 runs only when `GOOGLE_RECAPTCHA_SECRET_KEY` is set. Until then the
 </script>
 ```
 
+### How reCAPTCHA v3 works
+
+- **Frictionless detection.** It runs in the background and does not show an image or checkbox challenge.
+- **Score range.** Google returns a score from 0.0 (likely a bot) to 1.0 (likely a human) for the submit.
+- **Default threshold.** This API accepts a score of at least 0.5. Set `RECAPTCHA_MIN_SCORE` to change that.
+- **Token expiration.** A token generated in the browser expires after 2 minutes. The page requests a new one on each submit.
+- **Actions.** The token is labeled `apply`, so this submit can be told apart from other events such as login or comment.
+
 On success the script removes `hide` from `[dev-target="success-state"]` and adds `hide` to `[dev-target="form-wrapper"]`. It does not replace the success block’s copy. Field errors use `[dev-target="form-error-wrapper"]` and `[dev-target="form-error-text"]`. Showing a form error hides the success block again. Page-level problems use `[dev-target="error-wrapper"]`.
 
 A non-JSON response, including a host rejecting the body before the handler runs, is shown as “Your application could not be submitted. Please try again.”
