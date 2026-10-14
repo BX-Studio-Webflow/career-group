@@ -1,5 +1,6 @@
 import { fetchJob, submitApplication } from '../shared/api';
 import { applicationFormData, clearFieldErrors, markFieldErrors, targetForMessage } from '../shared/apply';
+import { recaptchaToken } from '../shared/recaptcha';
 import { divisionChipColor } from '../shared/divisions';
 import { bindErrorCancel, hideError, hideFormError, showError, showFormError } from '../shared/errors';
 import { formatSalaryRange } from '../shared/jobs';
@@ -135,6 +136,45 @@ function setSubmitting(submit: HTMLInputElement | HTMLButtonElement, waiting: bo
 	submit.textContent = label;
 }
 
+async function submitApplicationWithCheck(id: string, body: FormData): Promise<void> {
+	const token = await recaptchaToken();
+	if (token === null) {
+		showFormError('The security check could not be loaded. Please try again.');
+		return;
+	}
+	if (token) {
+		body.set('recaptchaToken', token);
+	}
+
+	const result = await submitApplication(id, body);
+	if (!result.ok) {
+		const message = result.message || 'Your application could not be submitted. Please try again.';
+		const target = targetForMessage(message);
+		const form = document.querySelector<HTMLFormElement>(FORM_SELECTOR);
+		if (target && form) {
+			markFieldErrors(form, [target]);
+		}
+		showFormError(message);
+		return;
+	}
+
+	if (result.alreadyApplied && result.resumeAttached === false) {
+		showSuccess('You already applied for this job, and the resume could not be attached.');
+		return;
+	}
+	if (result.alreadyApplied) {
+		showSuccess('You already applied for this job.');
+		return;
+	}
+	if (result.resumeAttached === false) {
+		showSuccess('Your application was submitted, but the resume could not be attached.');
+		return;
+	}
+
+	showSuccess('Your application was submitted.');
+	document.querySelector<HTMLFormElement>(FORM_SELECTOR)?.reset();
+}
+
 function bindForm(form: HTMLFormElement, id: string): void {
 	form.noValidate = true;
 	hideFormError();
@@ -172,34 +212,7 @@ function bindForm(form: HTMLFormElement, id: string): void {
 			}
 
 			clearFieldErrors(form);
-			void submitApplication(id, parsed.body)
-				.then((result) => {
-					if (!result.ok) {
-						const message = result.message || 'Your application could not be submitted. Please try again.';
-						const target = targetForMessage(message);
-						if (target) {
-							markFieldErrors(form, [target]);
-						}
-						showFormError(message);
-						return;
-					}
-
-					if (result.alreadyApplied && result.resumeAttached === false) {
-						showSuccess('You already applied for this job, and the resume could not be attached.');
-						return;
-					}
-					if (result.alreadyApplied) {
-						showSuccess('You already applied for this job.');
-						return;
-					}
-					if (result.resumeAttached === false) {
-						showSuccess('Your application was submitted, but the resume could not be attached.');
-						return;
-					}
-
-					showSuccess('Your application was submitted.');
-					form.reset();
-				})
+			void submitApplicationWithCheck(id, parsed.body)
 				.catch((error: unknown) => {
 					console.error('[Careers] Application failed', error);
 					showFormError('Your application could not be submitted. Please try again.');

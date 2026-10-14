@@ -4,6 +4,7 @@ import { bullhornClient, BullhornHttpError, ConfigError } from './bullhorn/clien
 import { readConfig } from './bullhorn/config.js';
 import { MapsConfigError, MapsUnavailableError, UnresolvedPlaceError } from './geo.js';
 import { fail, JOB_CACHE_CONTROL } from './http.js';
+import { verifyRecaptcha } from './recaptcha.js';
 import type { AppEnv } from './types.js';
 import { parseApplication, parseJobParam, parseListQuery } from './validate.js';
 
@@ -107,6 +108,12 @@ export async function applyToJob(context: Context<AppEnv>) {
 		return fail(context, 400, 'invalid_application', parsed.message);
 	}
 
+	const token = typeof body.recaptchaToken === 'string' ? body.recaptchaToken : '';
+	const check = await verifyRecaptcha(token, clientIp(context.req.header('x-forwarded-for')));
+	if (!check.ok) {
+		return fail(context, check.status, check.error, check.message);
+	}
+
 	const { value } = parsed;
 	return bullhornRoute(context, async () => {
 		const { resume, ...application } = value;
@@ -119,4 +126,8 @@ export async function applyToJob(context: Context<AppEnv>) {
 			'Cache-Control': 'no-store',
 		});
 	});
+}
+
+function clientIp(forwardedFor: string | undefined): string {
+	return forwardedFor?.split(',')[0]?.trim() ?? '';
 }

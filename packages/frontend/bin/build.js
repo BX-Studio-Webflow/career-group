@@ -48,6 +48,7 @@ const context = await esbuild.context({
 	define: {
 		SERVE_ORIGIN: JSON.stringify(SERVE_ORIGIN),
 		API_ORIGIN: JSON.stringify(API_ORIGIN),
+		GOOGLE_RECAPTCHA_SITE_KEY: JSON.stringify(process.env.GOOGLE_RECAPTCHA_SITE_KEY || ''),
 	},
 });
 

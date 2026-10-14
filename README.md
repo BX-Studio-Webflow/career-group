@@ -109,7 +109,13 @@ The browser checks the fields first and joins every problem into one message. A 
 
 Referral labels: I'm an existing candidate, Instagram, Internet Search, Email Marketing, LinkedIn, Pinterest, Referred by a peer, Others.
 
-There is no captcha.
+reCAPTCHA v3 runs only when `GOOGLE_RECAPTCHA_SECRET_KEY` is set. Until then the apply request is unchanged. With the secret set, the job page loads Google’s script from `window.GOOGLE_RECAPTCHA_SITE_KEY` (or `GOOGLE_RECAPTCHA_SITE_KEY` at build time), asks for a token with action `apply`, and sends it as `recaptchaToken`. The API checks that token with Google before it writes to Bullhorn. The token must succeed, use action `apply`, and score at least `RECAPTCHA_MIN_SCORE` (default 0.5). A failed check is “The security check failed. Please try again.” and creates no candidate. If the script cannot load, the page does not submit. OneTrust must allow `www.google.com` and `www.gstatic.com`.
+
+```html
+<script>
+	window.GOOGLE_RECAPTCHA_SITE_KEY = 'site-key';
+</script>
+```
 
 On success the script removes `hide` from `[dev-target="success-state"]` and adds `hide` to `[dev-target="form-wrapper"]`. It does not replace the success block’s copy. Field errors use `[dev-target="form-error-wrapper"]` and `[dev-target="form-error-text"]`. Showing a form error hides the success block again. Page-level problems use `[dev-target="error-wrapper"]`.
 
@@ -262,6 +268,9 @@ BULLHORN_SUBMISSION_STATUS=Web Response
 BULLHORN_CANDIDATE_STATUS=New Lead
 CORS_ORIGINS=https://www.careergroupcompanies.com,https://careergroupcompanies.com
 GOOGLE_MAPS_API_KEY=
+GOOGLE_RECAPTCHA_SECRET_KEY=
+GOOGLE_RECAPTCHA_SITE_KEY=
+RECAPTCHA_MIN_SCORE=0.5
 ```
 
 `BULLHORN_CANDIDATE_STATUS` is sent only when it is set, and only when a candidate is created.

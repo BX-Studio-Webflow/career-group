@@ -20,6 +20,8 @@ const ENV_KEYS = [
 	'BULLHORN_CANDIDATE_STATUS',
 	'CORS_ORIGINS',
 	'GOOGLE_MAPS_API_KEY',
+	'GOOGLE_RECAPTCHA_SECRET_KEY',
+	'RECAPTCHA_MIN_SCORE',
 ] as const;
 
 function publishedJob(id: number, extra: Record<string, unknown> = {}) {
@@ -56,6 +58,8 @@ class FakeBullhorn {
 	resumeStatus = 200;
 	geocodeStatus = 'OK';
 	geocodeKeys: string[] = [];
+	recaptchaHttp = 200;
+	recaptchaBody: Record<string, unknown> = { success: true, score: 0.9, action: 'apply' };
 	lastSubmission: unknown = null;
 	job: Record<string, unknown> | null = publishedJob(10);
 	searchRows: unknown[] = [publishedJob(10), publishedJob(11, { isPublic: false })];
@@ -147,6 +151,13 @@ class FakeBullhorn {
 			return new Response(null, { status: this.resumeStatus });
 		}
 
+		if (url.hostname === 'www.google.com' && url.pathname === '/recaptcha/api/siteverify') {
+			if (this.recaptchaHttp !== 200) {
+				return new Response('unavailable', { status: this.recaptchaHttp });
+			}
+			return Response.json(this.recaptchaBody);
+		}
+
 		if (url.hostname === 'maps.googleapis.com') {
 			const address = (url.searchParams.get('address') ?? '').trim().toLowerCase();
 			this.geocodeKeys.push(url.searchParams.get('key') ?? '');
@@ -183,6 +194,8 @@ function setEnv(): void {
 	delete process.env.BULLHORN_CANDIDATE_STATUS;
 	delete process.env.CORS_ORIGINS;
 	delete process.env.GOOGLE_MAPS_API_KEY;
+	delete process.env.GOOGLE_RECAPTCHA_SECRET_KEY;
+	delete process.env.RECAPTCHA_MIN_SCORE;
 }
 
 function clearEnv(): void {
@@ -205,6 +218,9 @@ function application(fields: Record<string, string> = {}, file: File | null = ne
 	}
 	if (fields.portfolioUrl) {
 		form.set('portfolioUrl', fields.portfolioUrl);
+	}
+	if (fields.recaptchaToken) {
+		form.set('recaptchaToken', fields.recaptchaToken);
 	}
 	if (file) {
 		form.set('resume', file);
@@ -499,6 +515,72 @@ describe('POST /api/jobs/:id/apply', () => {
 		expect(fake.updatedCandidates).toBe(1);
 		expect(fake.createdSubmissions).toBe(2);
 		expect(fake.fileTargets.filter((path) => path.includes('/file/Candidate/'))).toHaveLength(2);
+	});
+
+	it('skips reCAPTCHA when the secret is not set', async () => {
+		const response = await app.request('/api/jobs/10/apply', { method: 'POST', body: application() });
+		expect(response.status).toBe(200);
+		expect(fake.calls.some((call) => call.includes('siteverify'))).toBe(false);
+		expect(fake.createdCandidates).toBe(1);
+	});
+
+	it('rejects a missing reCAPTCHA token before calling Bullhorn', async () => {
+		process.env.GOOGLE_RECAPTCHA_SECRET_KEY = 'recaptcha-secret';
+		const response = await app.request('/api/jobs/10/apply', { method: 'POST', body: application() });
+		expect(response.status).toBe(400);
+		const body = (await response.json()) as { error: string; message: string };
+		expect(body.error).toBe('recaptcha_failed');
+		expect(body.message).toBe('The security check failed. Please try again.');
+		expect(fake.calls).toHaveLength(0);
+		expect(fake.createdCandidates).toBe(0);
+	});
+
+	it('accepts a reCAPTCHA v3 token before creating the candidate', async () => {
+		process.env.GOOGLE_RECAPTCHA_SECRET_KEY = 'recaptcha-secret';
+		const response = await app.request('/api/jobs/10/apply', {
+			method: 'POST',
+			body: application({ recaptchaToken: 'token' }),
+		});
+		expect(response.status).toBe(200);
+		expect(fake.calls[0]).toBe('POST /recaptcha/api/siteverify');
+		expect(fake.createdCandidates).toBe(1);
+	});
+
+	it('rejects a low reCAPTCHA score before calling Bullhorn', async () => {
+		process.env.GOOGLE_RECAPTCHA_SECRET_KEY = 'recaptcha-secret';
+		process.env.RECAPTCHA_MIN_SCORE = '0.5';
+		fake.recaptchaBody = { success: true, score: 0.1, action: 'apply' };
+		const response = await app.request('/api/jobs/10/apply', {
+			method: 'POST',
+			body: application({ recaptchaToken: 'token' }),
+		});
+		expect(response.status).toBe(400);
+		expect(fake.createdCandidates).toBe(0);
+		expect(fake.calls).toEqual(['POST /recaptcha/api/siteverify']);
+	});
+
+	it('rejects a reCAPTCHA token for a different action', async () => {
+		process.env.GOOGLE_RECAPTCHA_SECRET_KEY = 'recaptcha-secret';
+		fake.recaptchaBody = { success: true, score: 0.9, action: 'homepage' };
+		const response = await app.request('/api/jobs/10/apply', {
+			method: 'POST',
+			body: application({ recaptchaToken: 'token' }),
+		});
+		expect(response.status).toBe(400);
+		expect(fake.createdCandidates).toBe(0);
+	});
+
+	it('returns 502 when reCAPTCHA verification is unavailable', async () => {
+		process.env.GOOGLE_RECAPTCHA_SECRET_KEY = 'recaptcha-secret';
+		fake.recaptchaHttp = 500;
+		const response = await app.request('/api/jobs/10/apply', {
+			method: 'POST',
+			body: application({ recaptchaToken: 'token' }),
+		});
+		expect(response.status).toBe(502);
+		const body = (await response.json()) as { error: string };
+		expect(body.error).toBe('recaptcha_unavailable');
+		expect(fake.createdCandidates).toBe(0);
 	});
 
 	it('rejects a missing phone and an unknown referral', async () => {
