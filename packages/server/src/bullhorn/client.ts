@@ -57,7 +57,7 @@ export interface ApplyResult {
 	resumeAttached: boolean;
 }
 
-const CACHE_MS = 5 * 60 * 1000;
+const CACHE_MS = 60 * 60 * 1000;
 
 interface CacheEntry<T> {
 	expiresAt: number;

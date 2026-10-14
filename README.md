@@ -174,12 +174,12 @@ Bullhorn’s ATS API usage limits, per OAuth client id, are 1,500 requests per m
 
 Job reads are cached in two places. Applications and errors are not.
 
-**Vercel CDN.** `GET /api/jobs` and `GET /api/jobs/:id` send `Cache-Control: public, s-maxage=300, stale-while-revalidate=600`. The edge can serve a response for 5 minutes, then keep serving that copy for another 10 minutes while it fetches a fresh one. There is no `max-age`, so the browser is not told to keep its own copy.
+**Vercel CDN.** `GET /api/jobs` and `GET /api/jobs/:id` send `Cache-Control: public, s-maxage=3600, stale-while-revalidate=7200`. The edge can serve a response for 60 minutes, then keep serving that copy for another 120 minutes while it fetches a fresh one. There is no `max-age`, so the browser is not told to keep its own copy.
 
 **Server memory.** The Bullhorn client in a warm Node process keeps:
 
-- Each job list, including a `near` search, for 5 minutes, keyed by the query.
-- Each published job detail for 5 minutes, keyed by id. A missing or unpublished job is not stored.
+- Each job list, including a `near` search, for 60 minutes, keyed by the query.
+- Each published job detail for 60 minutes, keyed by id. A missing or unpublished job is not stored.
 - Geocoded places for the life of the process, including places Google could not resolve.
 - The Bullhorn session until 30 seconds before the token expires.
 

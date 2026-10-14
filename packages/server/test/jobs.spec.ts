@@ -303,7 +303,7 @@ describe('GET /api/jobs', () => {
 		const second = await app.request('/api/jobs?q=tax');
 
 		expect(first.status).toBe(200);
-		expect(first.headers.get('cache-control')).toBe('public, s-maxage=300, stale-while-revalidate=600');
+		expect(first.headers.get('cache-control')).toBe('public, s-maxage=3600, stale-while-revalidate=7200');
 		const body = (await first.json()) as { jobs: { title: string }[] };
 		expect(body.jobs.map((job) => job.title)).toEqual(['Accountant']);
 		expect(fake.calls.filter((call) => call.startsWith('GET /oauth/authorize'))).toHaveLength(1);
