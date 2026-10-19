@@ -42,7 +42,10 @@ function fillCard(card: HTMLElement, job: JobSummary, href: string): void {
 
 	const salary = formatSalaryRange(job);
 	setText(card, 'salary', salary);
-	card.querySelector('[dev-target="salary"]')?.closest('.salary')?.classList.toggle('hide', salary.length === 0);
+	card
+		.querySelector('[dev-target="salary"]')
+		?.closest('.salary')
+		?.classList.toggle('hide', salary.length === 0);
 
 	const apply = card.querySelector<HTMLAnchorElement>('[dev-target="apply-cta"]');
 	if (apply) {

@@ -1,9 +1,10 @@
+import { dangerouslyDeleteByTag } from '@vercel/functions';
 import type { Context } from 'hono';
 
-import { bullhornClient, BullhornHttpError, ConfigError } from './bullhorn/client.js';
+import { bullhornClient, BullhornHttpError, ConfigError, resetBullhornState } from './bullhorn/client.js';
 import { readConfig } from './bullhorn/config.js';
-import { MapsConfigError, MapsUnavailableError, UnresolvedPlaceError } from './geo.js';
-import { fail, JOB_CACHE_CONTROL } from './http.js';
+import { MapsConfigError, MapsUnavailableError, resetGeocodeCache, UnresolvedPlaceError } from './geo.js';
+import { fail, JOB_CACHE_TAG, jobCacheHeaders } from './http.js';
 import { verifyRecaptcha } from './recaptcha.js';
 import type { AppEnv } from './types.js';
 import { parseApplication, parseJobParam, parseListQuery } from './validate.js';
@@ -44,9 +45,7 @@ export async function listJobs(context: Context<AppEnv>) {
 	return bullhornRoute(context, async () => {
 		try {
 			const result = value.near ? await clientFromEnv().searchNear(value.near) : await clientFromEnv().searchPublished(value);
-			return context.json({ ok: true, ...result }, 200, {
-				'Cache-Control': JOB_CACHE_CONTROL,
-			});
+			return context.json({ ok: true, ...result }, 200, jobCacheHeaders());
 		} catch (error) {
 			if (error instanceof UnresolvedPlaceError) {
 				return fail(context, 422, 'unresolved_location', "We couldn't find that location. Try a city and state.");
@@ -74,9 +73,22 @@ export async function getJob(context: Context<AppEnv>) {
 			return fail(context, 404, 'not_found', 'Job not found.');
 		}
 
-		return context.json({ ok: true, job }, 200, {
-			'Cache-Control': JOB_CACHE_CONTROL,
-		});
+		return context.json({ ok: true, job }, 200, jobCacheHeaders());
+	});
+}
+
+export async function purgeCache(context: Context<AppEnv>) {
+	resetBullhornState();
+	resetGeocodeCache();
+	try {
+		await dangerouslyDeleteByTag(JOB_CACHE_TAG);
+	} catch (error) {
+		console.error('CDN cache purge failed:', error instanceof Error ? error.message : 'unknown');
+		return fail(context, 502, 'cache_purge_failed', 'The edge cache could not be purged.');
+	}
+
+	return context.json({ ok: true }, 200, {
+		'Cache-Control': 'no-store',
 	});
 }
 

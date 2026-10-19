@@ -28,7 +28,7 @@ flowchart LR
 
 The listing page loads `jobs.js`. The detail page loads `job.js`. Each script reads `window.CAREERS_API_ORIGIN` when it is set, otherwise the origin baked in at build time: `http://localhost:8787` in development and `https://career-group.vercel.app` in production.
 
-The API is one Hono app. Every request runs CORS, then a request id, then a request log. Routes are `GET /health`, `GET /api/jobs`, `GET /api/jobs/:id`, and `POST /api/jobs/:id/apply`. Anything else is `404`. An unexpected throw is `500` with `Request failed.` Errors use `Cache-Control: no-store`.
+The API is one Hono app. Every request runs CORS, then a request id, then a request log. Routes are `GET /health`, `GET /api/cache/purge`, `GET /api/jobs`, `GET /api/jobs/:id`, and `POST /api/jobs/:id/apply`. Anything else is `404`. An unexpected throw is `500` with `Request failed.` Errors use `Cache-Control: no-store`.
 
 One Bullhorn client is kept for the life of the Node process. The first call logs in. Later calls reuse that session.
 
@@ -174,7 +174,7 @@ Bullhorn’s ATS API usage limits, per OAuth client id, are 1,500 requests per m
 
 Job reads are cached in two places. Applications and errors are not.
 
-**Vercel CDN.** `GET /api/jobs` and `GET /api/jobs/:id` send `Cache-Control: public, s-maxage=3600, stale-while-revalidate=7200`. The edge can serve a response for 60 minutes, then keep serving that copy for another 120 minutes while it fetches a fresh one. There is no `max-age`, so the browser is not told to keep its own copy.
+**Vercel CDN.** `GET /api/jobs` and `GET /api/jobs/:id` send `Cache-Control: public, s-maxage=3600, stale-while-revalidate=7200` and `Vercel-Cache-Tag: jobs`. The edge can serve a response for 60 minutes, then keep serving that copy for another 120 minutes while it fetches a fresh one. There is no `max-age`, so the browser is not told to keep its own copy. `GET /api/cache/purge` clears the in-memory job, geocode, and Bullhorn session caches, then deletes every edge response tagged `jobs`. The next job read logs in and fetches Bullhorn again. The purge response itself is `Cache-Control: no-store`.
 
 **Server memory.** The Bullhorn client in a warm Node process keeps:
 

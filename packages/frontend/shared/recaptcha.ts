@@ -43,7 +43,7 @@ export async function recaptchaToken(): Promise<string | null> {
 
 	try {
 		await loadScript(key);
-		const grecaptcha = window.grecaptcha;
+		const { grecaptcha } = window;
 		if (!grecaptcha) {
 			return null;
 		}

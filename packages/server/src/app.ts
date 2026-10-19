@@ -1,7 +1,7 @@
 import { Hono } from 'hono';
 
 import { fail } from './http.js';
-import { applyToJob, getJob, listJobs } from './jobs.js';
+import { applyToJob, getJob, listJobs, purgeCache } from './jobs.js';
 import { cors } from './middleware/cors.js';
 import { requestId } from './middleware/request-id.js';
 import { requestLog } from './middleware/request-log.js';
@@ -12,6 +12,7 @@ const app = new Hono<AppEnv>();
 app.use('*', cors, requestId, requestLog);
 
 app.get('/health', (context) => context.json({ ok: true, status: 'ok' }));
+app.get('/api/cache/purge', purgeCache);
 app.get('/api/jobs', listJobs);
 app.get('/api/jobs/:id', getJob);
 app.post('/api/jobs/:id/apply', applyToJob);

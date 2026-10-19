@@ -1,5 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+const purgeTag = vi.hoisted(() => vi.fn(async () => {}));
+
+vi.mock('@vercel/functions', () => ({
+	dangerouslyDeleteByTag: purgeTag,
+}));
+
 import app from '../src/app.js';
 import { resetBullhornState } from '../src/bullhorn/client.js';
 import { MAX_RESUME_BYTES } from '../src/validate.js';
@@ -232,6 +238,8 @@ beforeEach(() => {
 	setEnv();
 	resetBullhornState();
 	resetGeocodeCache();
+	purgeTag.mockReset();
+	purgeTag.mockResolvedValue(undefined);
 	fake = new FakeBullhorn();
 	vi.stubGlobal('fetch', (input: RequestInfo | URL, init?: RequestInit) => fake.fetch(input, init));
 });
@@ -304,6 +312,7 @@ describe('GET /api/jobs', () => {
 
 		expect(first.status).toBe(200);
 		expect(first.headers.get('cache-control')).toBe('public, s-maxage=3600, stale-while-revalidate=7200');
+		expect(first.headers.get('vercel-cache-tag')).toBe('jobs');
 		const body = (await first.json()) as { jobs: { title: string }[] };
 		expect(body.jobs.map((job) => job.title)).toEqual(['Accountant']);
 		expect(fake.calls.filter((call) => call.startsWith('GET /oauth/authorize'))).toHaveLength(1);
@@ -378,6 +387,39 @@ describe('GET /api/jobs', () => {
 		const body = (await response.json()) as { error: string };
 		expect(body.error).toBe('configuration_error');
 		expect(fake.calls).toHaveLength(0);
+	});
+});
+
+describe('GET /api/cache/purge', () => {
+	it('drops the remembered jobs and asks Vercel to delete the edge copy', async () => {
+		const first = await app.request('/api/jobs');
+		expect(first.status).toBe(200);
+		const searches = () => fake.calls.filter((call) => call.includes('/search/JobOrder')).length;
+		const afterFirst = searches();
+
+		const cached = await app.request('/api/jobs');
+		expect(cached.status).toBe(200);
+		expect(searches()).toBe(afterFirst);
+
+		const purge = await app.request('/api/cache/purge');
+		expect(purge.status).toBe(200);
+		expect(purge.headers.get('cache-control')).toBe('no-store');
+		expect(purgeTag).toHaveBeenCalledWith('jobs');
+		const body = (await purge.json()) as { ok: boolean };
+		expect(body.ok).toBe(true);
+
+		const fresh = await app.request('/api/jobs');
+		expect(fresh.status).toBe(200);
+		expect(searches()).toBe(afterFirst + 1);
+	});
+
+	it('reports a failed edge purge', async () => {
+		purgeTag.mockRejectedValueOnce(new Error('unavailable'));
+		const response = await app.request('/api/cache/purge');
+		expect(response.status).toBe(502);
+		const body = (await response.json()) as { error: string };
+		expect(body.error).toBe('cache_purge_failed');
+		expect(response.headers.get('cache-control')).toBe('no-store');
 	});
 });
 

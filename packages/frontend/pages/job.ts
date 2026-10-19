@@ -1,9 +1,9 @@
 import { fetchJob, submitApplication } from '../shared/api';
 import { applicationFormData, clearFieldErrors, markFieldErrors, targetForMessage } from '../shared/apply';
-import { recaptchaToken } from '../shared/recaptcha';
 import { divisionChipColor } from '../shared/divisions';
 import { bindErrorCancel, hideError, hideFormError, showError, showFormError } from '../shared/errors';
 import { formatSalaryRange } from '../shared/jobs';
+import { recaptchaToken } from '../shared/recaptcha';
 
 const DIVISION_CARDS: Record<string, string> = {
 	'career group': 'division-card-career-grp',
