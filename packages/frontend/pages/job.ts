@@ -19,6 +19,7 @@ const FORM_WRAPPER_SELECTOR = '[dev-target="form-wrapper"]';
 const DESCRIPTION_SELECTOR = '[dev-target="job-description"]';
 const SUCCESS_SELECTOR = '[dev-target="success-state"]';
 const JOB_BODY_SELECTOR = '[dev-target="job-body"]';
+const LOADING_SELECTOR = '[dev-target="loading-state"]';
 const HIGHLIGHT_SELECTOR = '[dev-target="job-highlights"]';
 const SIDE_CARD_SELECTOR = `${HIGHLIGHT_SELECTOR}, [dev-target^="division-card-"]`;
 
@@ -32,6 +33,10 @@ function hideJobBody(): void {
 
 function showJobBody(): void {
 	jobBody()?.classList.remove('hide');
+}
+
+function hideLoading(): void {
+	document.querySelector<HTMLElement>(LOADING_SELECTOR)?.classList.add('hide');
 }
 
 function hideSideCards(): void {
@@ -75,6 +80,7 @@ function fillJob(
 	showHighlight();
 	document.title = title;
 	showJobBody();
+	hideLoading();
 
 	const descriptionNode = document.querySelector<HTMLElement>(DESCRIPTION_SELECTOR);
 	if (descriptionNode) {
@@ -235,12 +241,14 @@ if (form || description) {
 
 	if (!/^[1-9]\d{0,14}$/.test(id)) {
 		document.title = 'Job not available';
+		hideLoading();
 		showError('This job link is incomplete.');
 	} else {
 		void fetchJob(id)
 			.then((job) => {
 				if (!job) {
 					document.title = 'Job not available';
+					hideLoading();
 					showError('This job is no longer available.');
 					return;
 				}
@@ -261,6 +269,7 @@ if (form || description) {
 			.catch((error: unknown) => {
 				console.error('[Careers] Job detail failed', error);
 				document.title = 'Job not available';
+				hideLoading();
 				showError('This job could not be loaded. Please try again.');
 			});
 	}
