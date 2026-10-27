@@ -64,6 +64,15 @@ function takeTemplate(row: HTMLElement): HTMLElement | null {
 	return template;
 }
 
+function careersLimit(): number | null {
+	const limit = window.CAREERS_LIMIT;
+	if (typeof limit !== 'number' || !Number.isFinite(limit) || limit < 1) {
+		return null;
+	}
+
+	return Math.floor(limit);
+}
+
 function render(row: HTMLElement, template: HTMLElement, jobs: JobSummary[]): void {
 	row.replaceChildren();
 	for (const job of jobs) {
@@ -96,8 +105,10 @@ function start(): void {
 
 	void fetchPublishedJobs()
 		.then((jobs) => {
+			const limit = careersLimit();
+			const visible = limit === null ? jobs : jobs.slice(0, limit);
 			for (const { row, template } of ready) {
-				render(row, template, jobs);
+				render(row, template, visible);
 			}
 		})
 		.catch((error: unknown) => {
