@@ -42,8 +42,11 @@ function choice(label: string): FilterChoice {
 	return { label, value: label };
 }
 
+const WORKPLACE_LABELS = ['Onsite', 'Hybrid', 'Remote'];
+
 export const DIVISION_OPTIONS = DIVISION_LABELS.map(choice);
 export const EMPLOYMENT_OPTIONS = Object.keys(EMPLOYMENT_VALUES).map(choice);
+export const WORKPLACE_OPTIONS = WORKPLACE_LABELS.map(choice);
 export const JOB_FUNCTION_OPTIONS = JOB_FUNCTION_LABELS.map(choice);
 export const SALARY_OPTIONS: FilterChoice[] = SALARY_FLOORS.map((amount) => ({
 	label: new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(amount),

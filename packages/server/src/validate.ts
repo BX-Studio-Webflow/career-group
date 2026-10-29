@@ -16,17 +16,6 @@ const listQuerySchema = z.object({
 	count: z.coerce.number().int().min(1).max(200).default(50),
 });
 
-export const REFERRAL_SOURCES = [
-	"I'm an existing candidate",
-	'Instagram',
-	'Internet Search',
-	'Email Marketing',
-	'LinkedIn',
-	'Pinterest',
-	'Referred by a peer',
-	'Others',
-] as const;
-
 const optionalUrl = z
 	.string()
 	.trim()
@@ -40,7 +29,6 @@ const applicationSchema = z.object({
 	phone: z.string().trim().min(1).max(50),
 	city: z.string().trim().min(1).max(100),
 	state: z.string().trim().min(1).max(100),
-	referral: z.enum(REFERRAL_SOURCES),
 	linkedinUrl: optionalUrl,
 	portfolioUrl: optionalUrl,
 });
@@ -52,7 +40,6 @@ export interface ApplicationInput {
 	phone: string;
 	city: string;
 	state: string;
-	referral: (typeof REFERRAL_SOURCES)[number];
 	linkedinUrl: string;
 	portfolioUrl: string;
 }
@@ -87,7 +74,6 @@ const FIELD_LABELS: Record<string, string> = {
 	phone: 'phone number',
 	city: 'city',
 	state: 'state',
-	referral: 'referral source',
 	linkedinUrl: 'LinkedIn URL',
 	portfolioUrl: 'portfolio URL',
 };
@@ -116,9 +102,6 @@ function issueMessage(error: z.ZodError, fallback: string): string {
 	}
 	if (field === 'state') {
 		return tooLong(issue) ? 'Enter a shorter state.' : 'Enter a state.';
-	}
-	if (field === 'referral') {
-		return 'Select how you heard about us.';
 	}
 	if (field === 'linkedinUrl') {
 		return tooLong(issue) ? 'Enter a shorter LinkedIn URL.' : 'Enter a valid LinkedIn URL.';
@@ -213,7 +196,6 @@ export async function parseApplication(
 		phone: fieldText(body.phone),
 		city: fieldText(body.city),
 		state: fieldText(body.state),
-		referral: fieldText(body.referral),
 		linkedinUrl: fieldText(body.linkedinUrl),
 		portfolioUrl: fieldText(body.portfolioUrl),
 	});
@@ -236,7 +218,6 @@ export async function parseApplication(
 			phone: parsed.data.phone,
 			city: parsed.data.city,
 			state: parsed.data.state,
-			referral: parsed.data.referral,
 			linkedinUrl: parsed.data.linkedinUrl,
 			portfolioUrl: parsed.data.portfolioUrl,
 			resume: resume.file,

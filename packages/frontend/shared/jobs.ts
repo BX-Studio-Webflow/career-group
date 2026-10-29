@@ -9,6 +9,7 @@ export interface JobSummary {
 	salaryMax?: number | null;
 	salaryUnit: string;
 	publishedAt: number | null;
+	isPublic?: number;
 	division?: string;
 	remote?: boolean;
 	worksite?: string;

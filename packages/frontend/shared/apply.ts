@@ -46,7 +46,6 @@ const MESSAGE_TARGETS: [string, string][] = [
 	['phone', 'phone'],
 	['city', 'city'],
 	['state', 'state'],
-	['heard about', 'referral'],
 	['linkedin', 'linkedin-url'],
 	['portfolio', 'porfolio'],
 	['resume', 'file-upload'],
@@ -95,7 +94,6 @@ export function fieldErrors(form: HTMLFormElement): { target: string; message: s
 		textError('phone', value(form, 'phone'), 'Enter a phone number.', 50, 'Enter a shorter phone number.'),
 		textError('city', value(form, 'city'), 'Enter a city.', 100, 'Enter a shorter city.'),
 		textError('state', value(form, 'state'), 'Enter a state.', 100, 'Enter a shorter state.'),
-		value(form, 'referral') ? null : fieldError('referral', 'Select how you heard about us.'),
 		urlError('linkedin-url', value(form, 'linkedin-url'), 'Enter a shorter LinkedIn URL.', 'Enter a valid LinkedIn URL.'),
 		urlError('porfolio', value(form, 'porfolio'), 'Enter a shorter portfolio URL.', 'Enter a valid portfolio URL.'),
 		resumeMessage ? fieldError('file-upload', resumeMessage) : null,
@@ -123,7 +121,6 @@ export function applicationFormData(form: HTMLFormElement): { ok: true; body: Fo
 	const phone = value(form, 'phone');
 	const city = value(form, 'city');
 	const state = value(form, 'state');
-	const referral = value(form, 'referral');
 	const linkedinUrl = value(form, 'linkedin-url');
 	const portfolioUrl = value(form, 'porfolio');
 	const resume = form.querySelector<HTMLInputElement>('[dev-target="file-upload"]')?.files?.[0];
@@ -135,7 +132,6 @@ export function applicationFormData(form: HTMLFormElement): { ok: true; body: Fo
 	body.set('phone', phone);
 	body.set('city', city);
 	body.set('state', state);
-	body.set('referral', referral);
 	if (linkedinUrl) {
 		body.set('linkedinUrl', linkedinUrl);
 	}

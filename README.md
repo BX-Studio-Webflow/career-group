@@ -44,7 +44,7 @@ A job is public when `isDeleted` is false and Publishing Status (`isPublic`) is 
 
 | Careers value | JobOrder field |
 | --- | --- |
-| Publishing Status | `isPublic`. `Published` is `-1`. Legacy `1` is excluded. |
+| Publishing Status | `isPublic`. Each job in the response includes this value. `Published` is `-1`. Legacy `1` is excluded. |
 | Public title | `customText15`, then `title` |
 | Location | `address.city` and the state abbreviation, such as `San Francisco, CA`. A non-US country stays on the line. `None Specified` is dropped. |
 | Employment type | `employmentType` |
@@ -52,7 +52,7 @@ A job is public when `isDeleted` is false and Publishing Status (`isPublic`) is 
 | Annual pay | `customFloat1` min, `customFloat2` max |
 | Hourly pay | `payRate` min, `customFloat3` max, used when both annual amounts are empty |
 | Hide salary | `customText12` = Yes blanks the amounts |
-| Worksite | `customText10`. The card shows `Remote` or `Hybrid`. Onsite and blank stay hidden. `remote` is true only for Remote. |
+| Worksite | `customText10`. The card shows `Onsite`, `Hybrid`, or `Remote`. A blank value stays hidden. `remote` is true only for Remote. |
 | Division | `customText20` |
 | Posted date | `customDate1`, then `dateLastPublished` |
 | Public description | `publicDescription` on the detail page. Script and iframe tags are stripped before it is inserted as HTML. The card preview is `customText4` when set, otherwise a plain-text excerpt of `publicDescription`, cut near 220 characters. |
@@ -63,7 +63,7 @@ A job is public when `isDeleted` is false and Publishing Status (`isPublic`) is 
 
 `jobs.js` clones the first `[dev-target="job-card-item"]` inside `[dev-target="jobs-list"]`, then removes that original. The card link is `detail-path` on the list, or `/dev/job-posting-dev`, plus `?id=`. Card text is filled through `fs-cmsfilter-field` (`title`, `location`, `type`, `category`, `salary`, `remote`). The division chip is `[dev-target="division-chip"]`. The worksite row is `[dev-target="remote-role"]`. The results line is `[dev-target="results"]` or `.results`. A job is marked new when `publishedAt` is on or after local midnight four days ago. While the first page is in flight, the list reads `Loading jobs…`.
 
-Filters run in the script, 150ms after the last change. Checked values in one group match any of those values. Groups combine. The groups are division, remote only, employment type, salary, and job function. Clear Filters restores the loaded list.
+Filters run in the script, 150ms after the last change. Checked values in one group match any of those values. Groups combine. The groups are division, workplace model (Onsite, Hybrid, Remote), employment type, salary, and job function. Clear Filters restores the loaded list.
 
 Salary radios are annual minimums from $40,000 to $200,000. Hourly jobs are compared as annual pay using 2,080 hours. A job with no salary is hidden once a minimum is set. A single hourly rate renders as `$30/hr`. A range renders as `$30/hr–$36/hr`. Yearly amounts have no unit suffix. Employment options match more than one Bullhorn label: Direct Hire also matches Permanent, Temp to Hire also matches Contract to Hire, and Temp also matches Temporary and Contract.
 
@@ -75,7 +75,7 @@ The keyword box matches the title and location already loaded in the browser. It
 
 The page URL is `/dev/job-posting-dev?id=123` for as long as that job stays published. `job.js` reads `id` from the query string. A missing or non-numeric id shows “This job link is incomplete.” A `404` shows “This job is no longer available.” A failed request shows “This job could not be loaded. Please try again.”
 
-On load, the job body and the side cards start hidden. A successful job fills the title, location, type, category, salary, division, and description, sets the document title, colors `job-highlights` with the division color, and shows the matching division card. Every other division card stays hidden.
+On load, the job body and the side cards start hidden. A successful job fills the title, location, type, workplace model, salary, division, and description, sets the document title, colors `job-highlights` with the division color, and shows the matching division card. Every other division card stays hidden. Workplace model is `Onsite`, `Hybrid`, or `Remote`. A blank worksite hides that line.
 
 | Division | Color | Card |
 | --- | --- | --- |
@@ -102,12 +102,9 @@ The browser checks the fields first and joins every problem into one message. A 
 | `phone` | `phone` | yes | 50 |
 | `city` | `city` | yes | 100 |
 | `state` | `state` | yes | 100 |
-| `referral` | `referral` | yes | one of the eight labels below |
 | `linkedin-url` | `linkedinUrl` | no | 100, http or https when present |
 | `porfolio` | `portfolioUrl` | no | 100, http or https when present. The target spelling is `porfolio`. |
 | `file-upload` | `resume` | yes | PDF, DOC, or DOCX, 10 MB |
-
-Referral labels: I'm an existing candidate, Instagram, Internet Search, Email Marketing, LinkedIn, Pinterest, Referred by a peer, Others.
 
 reCAPTCHA v3 runs only when `GOOGLE_RECAPTCHA_SECRET_KEY` is set. Until then the apply request is unchanged. With the secret set, the job page loads Google’s script from `window.GOOGLE_RECAPTCHA_SITE_KEY` (or `GOOGLE_RECAPTCHA_SITE_KEY` at build time), asks for a token with action `apply`, and sends it as `recaptchaToken`. The API checks that token with Google before it writes to Bullhorn. The token must succeed, use action `apply`, and score at least `RECAPTCHA_MIN_SCORE` (default 0.5). A failed check is “The security check failed. Please try again.” and creates no candidate. If the script cannot load, the page does not submit. OneTrust must allow `www.google.com` and `www.gstatic.com`.
 
@@ -149,10 +146,9 @@ The record created in step 5 is an internal JobSubmission. Bullhorn’s Web Resp
 | First name, last name | `firstName`, `lastName`, and `name` (the two names, cut at 100) |
 | Email, phone | `email`, `phone` |
 | City, state | `address.city`, `address.state` |
-| Referral | `source`. Instagram stays Instagram. Internet Search becomes Internet/Google Search. LinkedIn becomes LinkedIn Search, stored with the non-breaking space already in that picklist option. Referred by a peer becomes Referral - Applicant referred Applicant. I'm an existing candidate, Email Marketing, Pinterest, and Others become Other. |
 | LinkedIn URL | `customText8`, only when the field is filled |
 | Portfolio URL | `companyURL`, only when the field is filled |
-| New candidate only | `status` from `BULLHORN_CANDIDATE_STATUS` |
+| New candidate only | `source` is `CGC Website`. `status` comes from `BULLHORN_CANDIDATE_STATUS` |
 
 An update does not overwrite recruiter fields that the form does not send.
 
@@ -223,7 +219,7 @@ Detail markup:
 	<p dev-target="job-location"></p>
 	<p dev-target="job-salary"></p>
 	<p dev-target="job-type"></p>
-	<p dev-target="job-category"></p>
+	<p dev-target="workplace-model"></p>
 	<p dev-target="division"></p>
 </div>
 <div dev-target="division-card-career-grp" class="division-details"></div>
@@ -244,7 +240,6 @@ Detail markup:
 	<input dev-target="phone" type="tel" required />
 	<input dev-target="city" required />
 	<input dev-target="state" required />
-	<select dev-target="referral" required></select>
 	<input dev-target="file-upload" type="file" accept=".pdf,.doc,.docx" required />
 	<input dev-target="linkedin-url" type="url" />
 	<input dev-target="porfolio" type="url" />

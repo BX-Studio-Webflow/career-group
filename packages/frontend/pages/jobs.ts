@@ -10,6 +10,7 @@ import {
 	matchesChoice,
 	matchesEmployment,
 	SALARY_OPTIONS,
+	WORKPLACE_OPTIONS,
 } from '../shared/filters';
 import { annualSalary, formatCardSalary, formatPostedDate, isNewJob, type JobSummary } from '../shared/jobs';
 
@@ -36,7 +37,7 @@ const MOBILE_FILTER_QUERY = '(max-width: 767px)';
 interface Filters {
 	q: string;
 	divisions: string[];
-	remoteOnly: boolean;
+	workplaces: string[];
 	employmentTypes: string[];
 	categories: string[];
 	min: number | null;
@@ -44,6 +45,7 @@ interface Filters {
 }
 
 let divisionInputs: HTMLInputElement[] = [];
+let workplaceInputs: HTMLInputElement[] = [];
 let employmentInputs: HTMLInputElement[] = [];
 let salaryInputs: HTMLInputElement[] = [];
 let functionInputs: HTMLInputElement[] = [];
@@ -118,7 +120,7 @@ function readFilters(): Filters {
 	return {
 		q: readSearch(),
 		divisions: checkedValues(divisionInputs),
-		remoteOnly: document.querySelector<HTMLInputElement>(`${REMOTE_SELECTOR} input`)?.checked ?? false,
+		workplaces: checkedValues(workplaceInputs),
 		employmentTypes: checkedValues(employmentInputs),
 		categories: readCategories(),
 		min: salary.min,
@@ -140,7 +142,7 @@ function matches(job: JobSummary, filters: Filters, locationText: string): boole
 	if (!matchesChoice(job.division ?? '', filters.divisions)) {
 		return false;
 	}
-	if (filters.remoteOnly && !job.remote) {
+	if (!matchesChoice(job.worksite ?? '', filters.workplaces)) {
 		return false;
 	}
 	if (!matchesEmployment(job.employmentType, filters.employmentTypes)) {
@@ -370,8 +372,12 @@ function setWorksiteLabel(node: HTMLElement, label: string): void {
 	node.textContent = label;
 }
 
+function workplaceModelInputs(): HTMLInputElement[] {
+	return choiceInputs(REMOTE_SELECTOR, WORKPLACE_OPTIONS, 'workplace');
+}
+
 function fillWorksite(root: ParentNode, worksite: string): void {
-	const shown = worksite === 'Remote' || worksite === 'Hybrid';
+	const shown = worksite === 'Onsite' || worksite === 'Hybrid' || worksite === 'Remote';
 	setShown(root.querySelector('[dev-target="remote-role"]'), shown);
 	const text = root.querySelector<HTMLElement>('[dev-target="remote-text"], p.remote');
 	if (text) {
@@ -382,7 +388,7 @@ function fillWorksite(root: ParentNode, worksite: string): void {
 	}
 	const value = root.querySelector<HTMLElement>('p.hidden-filter[fs-cmsfilter-field="remote"]');
 	if (value) {
-		value.textContent = worksite === 'Remote' ? 'Yes' : worksite === 'Hybrid' ? 'Hybrid' : 'No';
+		value.textContent = shown ? worksite : '';
 	}
 }
 
@@ -511,15 +517,10 @@ function bindFilters(onChange: () => void, onLocation: () => void, onClear: () =
 	const search = document.querySelector(SEARCH_SELECTOR) ?? document.querySelector(QUERY_SELECTOR);
 	search?.addEventListener('input', onChange);
 	bindChoice(divisionInputs, onChange);
+	bindChoice(workplaceInputs, onChange);
 	bindChoice(employmentInputs, onChange);
 	bindChoice(functionInputs, onChange);
 	bindChoice(salaryInputs, onChange);
-
-	const remote = document.querySelector<HTMLInputElement>(`${REMOTE_SELECTOR} input`);
-	remote?.addEventListener('change', () => {
-		setTimeout(() => syncInput(remote), 0);
-		onChange();
-	});
 
 	const location = document.querySelector(LOCATION_SELECTOR);
 	location?.addEventListener('input', onLocation);
@@ -600,6 +601,7 @@ function start(): void {
 	document.querySelector('[fs-cmsfilter-element="filters"]')?.removeAttribute('fs-cmsfilter-element');
 
 	divisionInputs = choiceInputs(DIVISION_SELECTOR, DIVISION_OPTIONS, 'division');
+	workplaceInputs = workplaceModelInputs();
 	employmentInputs = choiceInputs(EMPLOYMENT_SELECTOR, EMPLOYMENT_OPTIONS, 'employment-type');
 	salaryInputs = choiceInputs(SALARY_SELECTOR, SALARY_OPTIONS, 'salary');
 	functionInputs = jobFunctionInputs();
@@ -609,9 +611,6 @@ function start(): void {
 		header: 'accordion-header',
 		body: 'accordion-body',
 	}).mount();
-	if (!document.querySelector(`${REMOTE_SELECTOR} input`)) {
-		logEarly('Remote option is missing.');
-	}
 	if (!document.querySelector(LOCATION_SELECTOR)) {
 		logEarly('Location input is missing.');
 	}
@@ -682,17 +681,10 @@ function start(): void {
 		if (location) {
 			location.value = '';
 		}
-		for (const input of [...divisionInputs, ...employmentInputs, ...salaryInputs, ...functionInputs]) {
+		for (const input of [...divisionInputs, ...workplaceInputs, ...employmentInputs, ...salaryInputs, ...functionInputs]) {
 			input.checked = false;
 		}
-		const remote = document.querySelector<HTMLInputElement>(`${REMOTE_SELECTOR} input`);
-		if (remote) {
-			remote.checked = false;
-		}
-		syncInputs([...divisionInputs, ...employmentInputs, ...salaryInputs, ...functionInputs]);
-		if (remote) {
-			syncInput(remote);
-		}
+		syncInputs([...divisionInputs, ...workplaceInputs, ...employmentInputs, ...salaryInputs, ...functionInputs]);
 		const min = document.querySelector<HTMLInputElement>(SALARY_MIN_SELECTOR);
 		const max = document.querySelector<HTMLInputElement>(SALARY_MAX_SELECTOR);
 		if (min) {

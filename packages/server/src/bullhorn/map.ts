@@ -20,6 +20,7 @@ export interface JobSummary {
 	salaryMax: number | null;
 	salaryUnit: string;
 	publishedAt: number | null;
+	isPublic: number;
 	division: string;
 	remote: boolean;
 	worksite: string;
@@ -68,8 +69,12 @@ function flag(value: unknown): boolean {
 	return value === true || value === 1 || value === '1' || value === 'true';
 }
 
-function isPublished(value: unknown): boolean {
-	return value === -1 || value === '-1';
+function publishedStatus(value: unknown): number | null {
+	if (value === -1 || value === '-1') {
+		return -1;
+	}
+
+	return null;
 }
 
 function salaryAmount(value: unknown): number | null {
@@ -244,6 +249,7 @@ export function toJobSummary(job: JobDetail): JobSummary {
 		salaryMax: job.salaryMax,
 		salaryUnit: job.salaryUnit,
 		publishedAt: job.publishedAt,
+		isPublic: job.isPublic,
 		division: job.division,
 		remote: job.remote,
 		worksite: job.worksite,
@@ -292,7 +298,8 @@ export function mapJob(value: unknown): JobDetail | null {
 		return null;
 	}
 
-	if (!isPublished(value.isPublic) || flag(value.isDeleted)) {
+	const isPublic = publishedStatus(value.isPublic);
+	if (isPublic === null || flag(value.isDeleted)) {
 		return null;
 	}
 
@@ -338,6 +345,7 @@ export function mapJob(value: unknown): JobDetail | null {
 		salaryMax,
 		salaryUnit,
 		publishedAt,
+		isPublic,
 		division: divisionName(value.customText20),
 		remote: worksite === 'Remote',
 		worksite,

@@ -218,7 +218,6 @@ function application(fields: Record<string, string> = {}, file: File | null = ne
 	form.set('phone', fields.phone ?? '555-0100');
 	form.set('city', fields.city ?? 'Austin');
 	form.set('state', fields.state ?? 'TX');
-	form.set('referral', fields.referral ?? 'Instagram');
 	if (fields.linkedinUrl) {
 		form.set('linkedinUrl', fields.linkedinUrl);
 	}
@@ -263,7 +262,8 @@ describe('published job query', () => {
 		expect(mapJob(publishedJob(10, { isOpen: false, isPublic: -1 }))?.title).toBe('Accountant');
 		expect(mapJob(publishedJob(10, { isDeleted: true, isPublic: -1 }))).toBeNull();
 		expect(mapJob(publishedJob(10, { isPublic: -1 }))?.title).toBe('Accountant');
-		expect(mapJob(publishedJob(10, { isPublic: '-1' }))?.title).toBe('Accountant');
+		expect(mapJob(publishedJob(10, { isPublic: '-1' }))?.isPublic).toBe(-1);
+		expect(mapJob(publishedJob(10))?.isPublic).toBe(-1);
 		expect(mapJob(publishedJob(10, { customDate1: Date.now() + 86_400_000 }))).toBeNull();
 		expect(mapJob(publishedJob(10, { customDate1: Date.now() - 86_400_000 }))?.title).toBe('Accountant');
 		expect(mapJob(publishedJob(10, { dateLastPublished: Date.now() + 86_400_000 }))).toBeNull();
@@ -533,7 +533,6 @@ describe('POST /api/jobs/:id/apply', () => {
 			method: 'POST',
 			body: application(
 				{
-					referral: 'LinkedIn',
 					linkedinUrl: 'https://www.linkedin.com/in/ada',
 					portfolioUrl: 'https://ada.example',
 				},
@@ -545,7 +544,7 @@ describe('POST /api/jobs/:id/apply', () => {
 			email: 'ada@example.com',
 			phone: '555-0100',
 			address: { city: 'Austin', state: 'TX' },
-			source: 'LinkedIn\u00a0Search',
+			source: 'CGC Website',
 			customText8: 'https://www.linkedin.com/in/ada',
 			companyURL: 'https://ada.example',
 		});
@@ -561,6 +560,7 @@ describe('POST /api/jobs/:id/apply', () => {
 		expect(second.status).toBe(200);
 		expect(fake.createdCandidates).toBe(1);
 		expect(fake.updatedCandidates).toBe(1);
+		expect(fake.lastCandidate).not.toHaveProperty('source');
 		expect(fake.createdSubmissions).toBe(2);
 		expect(fake.fileTargets.filter((path) => path.includes('/file/Candidate/'))).toHaveLength(2);
 	});
@@ -631,13 +631,10 @@ describe('POST /api/jobs/:id/apply', () => {
 		expect(fake.createdCandidates).toBe(0);
 	});
 
-	it('rejects a missing phone and an unknown referral', async () => {
+	it('rejects a missing phone before calling Bullhorn', async () => {
 		const missingPhone = await app.request('/api/jobs/10/apply', { method: 'POST', body: application({ phone: '' }) });
-		const unknownReferral = await app.request('/api/jobs/10/apply', { method: 'POST', body: application({ referral: 'Billboard' }) });
 		expect(missingPhone.status).toBe(400);
 		expect(((await missingPhone.json()) as { message: string }).message).toBe('Enter a phone number.');
-		expect(unknownReferral.status).toBe(400);
-		expect(((await unknownReferral.json()) as { message: string }).message).toBe('Select how you heard about us.');
 		expect(fake.calls).toHaveLength(0);
 	});
 

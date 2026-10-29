@@ -1,23 +1,9 @@
-import { type ApplicationInput, REFERRAL_SOURCES } from '../validate.js';
+import type { ApplicationInput } from '../validate.js';
 
-/**
- * Bullhorn stores this option with a non-breaking space.
- * A normal space is rejected by the Referral Source picklist.
- */
-const LINKEDIN_SOURCE = 'LinkedIn\u00a0Search';
+/** Bullhorn Candidate Referral Source for applicants created from the careers site. */
+export const CANDIDATE_SOURCE = 'CGC Website';
 
-const SOURCE_BY_REFERRAL: Record<(typeof REFERRAL_SOURCES)[number], string> = {
-	"I'm an existing candidate": 'Other',
-	Instagram: 'Instagram',
-	'Internet Search': 'Internet/Google Search',
-	'Email Marketing': 'Other',
-	LinkedIn: LINKEDIN_SOURCE,
-	Pinterest: 'Other',
-	'Referred by a peer': 'Referral - Applicant referred Applicant',
-	Others: 'Other',
-};
-
-export function candidateFields(application: ApplicationInput, status?: string): Record<string, unknown> {
+export function candidateFields(application: ApplicationInput, options?: { status?: string; source?: string }): Record<string, unknown> {
 	const name = `${application.firstName} ${application.lastName}`.slice(0, 100);
 	const payload: Record<string, unknown> = {
 		firstName: application.firstName,
@@ -29,7 +15,6 @@ export function candidateFields(application: ApplicationInput, status?: string):
 			city: application.city,
 			state: application.state,
 		},
-		source: SOURCE_BY_REFERRAL[application.referral],
 	};
 
 	if (application.linkedinUrl) {
@@ -38,8 +23,11 @@ export function candidateFields(application: ApplicationInput, status?: string):
 	if (application.portfolioUrl) {
 		payload.companyURL = application.portfolioUrl;
 	}
-	if (status) {
-		payload.status = status;
+	if (options?.source) {
+		payload.source = options.source;
+	}
+	if (options?.status) {
+		payload.status = options.status;
 	}
 
 	return payload;

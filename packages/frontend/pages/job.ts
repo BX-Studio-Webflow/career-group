@@ -60,11 +60,21 @@ function setText(target: string, value: string): void {
 	}
 }
 
+function fillWorkplace(worksite: string): void {
+	const node = document.querySelector<HTMLElement>('[dev-target="workplace-model"]');
+	if (!node) {
+		return;
+	}
+
+	node.textContent = worksite;
+	node.classList.toggle('hide', worksite.length === 0);
+}
+
 function fillJob(
 	title: string,
 	location: string,
 	employmentType: string,
-	category: string,
+	worksite: string,
 	salary: string,
 	description: string,
 	division: string,
@@ -72,7 +82,7 @@ function fillJob(
 	setText('job-title', title);
 	setText('job-location', location);
 	setText('job-type', employmentType);
-	setText('job-category', category);
+	fillWorkplace(worksite);
 	setText('job-salary', salary);
 	setText('division', division);
 	fillHighlight(division);
@@ -257,7 +267,7 @@ if (form || description) {
 					job.title,
 					job.location,
 					job.employmentType,
-					job.category,
+					job.worksite?.trim() || (job.remote ? 'Remote' : ''),
 					formatSalaryRange(job),
 					job.description,
 					job.division?.trim() ?? '',

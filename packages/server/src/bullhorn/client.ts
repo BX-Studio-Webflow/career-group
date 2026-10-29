@@ -3,7 +3,7 @@ import { request as httpsRequest } from 'node:https';
 
 import { geocode, UnresolvedPlaceError, withinRadius } from '../geo.js';
 import type { ApplicationInput, ResumeFile } from '../validate.js';
-import { candidateFields } from './application.js';
+import { CANDIDATE_SOURCE, candidateFields } from './application.js';
 import type { BullhornConfig } from './config.js';
 import { DETAIL_FIELDS, LIST_FIELDS, PUBLISHED_SORT } from './fields.js';
 import {
@@ -270,7 +270,10 @@ export class BullhornClient {
 			'candidate_create',
 			'PUT',
 			'entity/Candidate',
-			candidateFields(application, this.config.candidateStatus || undefined),
+			candidateFields(application, {
+				status: this.config.candidateStatus || undefined,
+				source: CANDIDATE_SOURCE,
+			}),
 		);
 		return changedId(body);
 	}
