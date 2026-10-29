@@ -50,7 +50,7 @@ export function publishedJobsQuery(query: Pick<ListQuery, 'q' | 'location' | 'ca
 
 	const category = query.category?.trim();
 	if (category) {
-		parts.push(`customText5:"${escapeLucene(category)}"`);
+		parts.push(`customText7:"${escapeLucene(category)}"`);
 	}
 
 	return parts.join(' AND ');
@@ -66,6 +66,10 @@ function text(value: unknown): string {
 
 function flag(value: unknown): boolean {
 	return value === true || value === 1 || value === '1' || value === 'true';
+}
+
+function isPublished(value: unknown): boolean {
+	return value === -1 || value === '-1';
 }
 
 function salaryAmount(value: unknown): number | null {
@@ -288,7 +292,7 @@ export function mapJob(value: unknown): JobDetail | null {
 		return null;
 	}
 
-	if (!flag(value.isPublic) || flag(value.isDeleted)) {
+	if (!isPublished(value.isPublic) || flag(value.isDeleted)) {
 		return null;
 	}
 
@@ -297,8 +301,7 @@ export function mapJob(value: unknown): JobDetail | null {
 		return null;
 	}
 
-	const publishedCategory = isRecord(value.publishedCategory) ? text(value.publishedCategory.name) : '';
-	const category = text(value.customText5) || publishedCategory;
+	const category = text(value.customText7);
 	const worksite = worksiteName(value.customText10);
 	const publishedAt =
 		typeof value.customDate1 === 'number'

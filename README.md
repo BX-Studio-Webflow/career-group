@@ -34,9 +34,9 @@ One Bullhorn client is kept for the life of the Node process. The first call log
 
 ## Published jobs
 
-A job is public when `isDeleted` is false and `isPublic` is on. Search uses `isDeleted:false AND isPublic:1`. `isPublic:true` matches nothing in this corp. A job whose publish date is in the future is dropped after the search. The publish date is Published Date (`customDate1`), or `dateLastPublished` when that field is empty. A job with no date still lists. A job with no public title is dropped. Closed jobs stay on the list while the public flag is still on.
+A job is public when `isDeleted` is false and Publishing Status (`isPublic`) is `Published`. That picklist value is `-1`. Search uses `isDeleted:false AND isPublic:"-1"`. The legacy value `1` is not a picklist option and is excluded. `isPublic:true` matches nothing in this corp. A job whose publish date is in the future is dropped after the search. The publish date is Published Date (`customDate1`), or `dateLastPublished` when that field is empty. A job with no date still lists. The list is sorted by Published Date, newest first. A job with no public title is dropped. Closed jobs stay on the list while the public flag is still on.
 
-`GET /api/jobs` also accepts `q`, `location`, and `category`. `q` is a title prefix. `location` is an exact city. `category` is an exact Job Function (`customText5`). `start` is 0–10,000 and defaults to 0. `count` is 1–200 and defaults to 50. The listing page does not send those three filters. It loads up to 500 published jobs, 200 at a time, and filters them in the browser. The only listing call that uses a server filter is the radius search.
+`GET /api/jobs` also accepts `q`, `location`, and `category`. `q` is a title prefix. `location` is an exact city. `category` is an exact Website Category (`customText7`). `start` is 0–10,000 and defaults to 0. `count` is 1–200 and defaults to 50. The listing page does not send those three filters. It loads up to 500 published jobs, 200 at a time, and filters them in the browser. The only listing call that uses a server filter is the radius search.
 
 `GET /api/jobs/:id` returns one published job, including the public description. A missing, deleted, unpublished, or future-dated job is `404`.
 
@@ -44,11 +44,11 @@ A job is public when `isDeleted` is false and `isPublic` is on. Search uses `isD
 
 | Careers value | JobOrder field |
 | --- | --- |
-| Publishing Status | `isPublic` (search `isPublic:1`) |
+| Publishing Status | `isPublic`. `Published` is `-1`. Legacy `1` is excluded. |
 | Public title | `customText15`, then `title` |
 | Location | `address.city` and the state abbreviation, such as `San Francisco, CA`. A non-US country stays on the line. `None Specified` is dropped. |
 | Employment type | `employmentType` |
-| Category | `customText5` (Job Function), then `publishedCategory.name` |
+| Category | `customText7` (Website Category) |
 | Annual pay | `customFloat1` min, `customFloat2` max |
 | Hourly pay | `payRate` min, `customFloat3` max, used when both annual amounts are empty |
 | Hide salary | `customText12` = Yes blanks the amounts |

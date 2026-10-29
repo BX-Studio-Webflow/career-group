@@ -5,7 +5,7 @@ import { geocode, UnresolvedPlaceError, withinRadius } from '../geo.js';
 import type { ApplicationInput, ResumeFile } from '../validate.js';
 import { candidateFields } from './application.js';
 import type { BullhornConfig } from './config.js';
-import { DETAIL_FIELDS, LIST_FIELDS } from './fields.js';
+import { DETAIL_FIELDS, LIST_FIELDS, PUBLISHED_SORT } from './fields.js';
 import {
 	escapeLucene,
 	geocodePlace,
@@ -151,7 +151,7 @@ export class BullhornClient {
 			fields: LIST_FIELDS,
 			count: String(query.count),
 			start: String(query.start),
-			sort: '-dateLastPublished',
+			sort: PUBLISHED_SORT,
 		};
 		const body = await this.readJson('job_search', 'search/JobOrder', params);
 		const value = mapSearch(body, query);
@@ -181,7 +181,7 @@ export class BullhornClient {
 				fields: LIST_FIELDS,
 				count: '200',
 				start: String(start),
-				sort: '-dateLastPublished',
+				sort: PUBLISHED_SORT,
 			});
 			if (!isRecord(body) || !Array.isArray(body.data)) {
 				throw new BullhornHttpError(502, 'Bullhorn job search was incomplete.');

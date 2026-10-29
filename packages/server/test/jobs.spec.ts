@@ -35,7 +35,7 @@ function publishedJob(id: number, extra: Record<string, unknown> = {}) {
 		id,
 		title: id === 11 ? 'Hidden role' : 'Accountant',
 		isOpen: true,
-		isPublic: true,
+		isPublic: -1,
 		isDeleted: false,
 		employmentType: 'Permanent',
 		salary: 80000,
@@ -253,14 +253,17 @@ afterEach(() => {
 describe('published job query', () => {
 	it('keeps user text inside the title clause', () => {
 		expect(escapeLucene('a+b:c')).toBe('a\\+b\\:c');
-		expect(publishedJobsQuery({ q: 'isPublic:false' })).toBe('isDeleted:false AND isPublic:1 AND title:isPublic\\:false*');
+		expect(publishedJobsQuery({ q: 'isPublic:false' })).toBe('isDeleted:false AND isPublic:"-1" AND title:isPublic\\:false*');
 	});
 
 	it('drops unpublished jobs and strips script tags', () => {
 		expect(mapJob(publishedJob(11, { isPublic: false }))).toBeNull();
-		expect(mapJob(publishedJob(10, { isOpen: false, isPublic: 1 }))?.title).toBe('Accountant');
-		expect(mapJob(publishedJob(10, { isDeleted: true, isPublic: 1 }))).toBeNull();
-		expect(mapJob(publishedJob(10, { isPublic: 1 }))?.title).toBe('Accountant');
+		expect(mapJob(publishedJob(10, { isPublic: 1 }))).toBeNull();
+		expect(mapJob(publishedJob(10, { isPublic: '1' }))).toBeNull();
+		expect(mapJob(publishedJob(10, { isOpen: false, isPublic: -1 }))?.title).toBe('Accountant');
+		expect(mapJob(publishedJob(10, { isDeleted: true, isPublic: -1 }))).toBeNull();
+		expect(mapJob(publishedJob(10, { isPublic: -1 }))?.title).toBe('Accountant');
+		expect(mapJob(publishedJob(10, { isPublic: '-1' }))?.title).toBe('Accountant');
 		expect(mapJob(publishedJob(10, { customDate1: Date.now() + 86_400_000 }))).toBeNull();
 		expect(mapJob(publishedJob(10, { customDate1: Date.now() - 86_400_000 }))?.title).toBe('Accountant');
 		expect(mapJob(publishedJob(10, { dateLastPublished: Date.now() + 86_400_000 }))).toBeNull();
@@ -277,8 +280,9 @@ describe('published job query', () => {
 		expect(mapJob(publishedJob(10, { address: { city: 'London', state: '', countryName: 'United Kingdom' } }))?.location).toBe(
 			'London, United Kingdom',
 		);
-		expect(mapJob(publishedJob(10, { customText5: 'Marketing' }))?.category).toBe('Marketing');
-		expect(mapJob(publishedJob(10))?.category).toBe('Accounting');
+		expect(mapJob(publishedJob(10, { customText7: 'Marketing' }))?.category).toBe('Marketing');
+		expect(mapJob(publishedJob(10, { customText5: 'Administrative-Office' }))?.category).toBe('');
+		expect(mapJob(publishedJob(10))?.category).toBe('');
 		expect(mapJob(publishedJob(10, { customText10: 'Hybrid' }))).toMatchObject({ remote: false, worksite: 'Hybrid' });
 		expect(mapJob(publishedJob(10, { customText10: 'Onsite' }))).toMatchObject({ remote: false, worksite: 'Onsite' });
 		expect(
@@ -316,7 +320,8 @@ describe('GET /api/jobs', () => {
 		const body = (await first.json()) as { jobs: { title: string }[] };
 		expect(body.jobs.map((job) => job.title)).toEqual(['Accountant']);
 		expect(fake.calls.filter((call) => call.startsWith('GET /oauth/authorize'))).toHaveLength(1);
-		expect(fake.urls.some((url) => decodeURIComponent(url).includes('isPublic:1'))).toBe(true);
+		expect(fake.urls.some((url) => decodeURIComponent(url).includes('isPublic:"-1"'))).toBe(true);
+		expect(fake.urls.some((url) => decodeURIComponent(url).includes('sort=-customDate1'))).toBe(true);
 		expect(second.status).toBe(200);
 	});
 
@@ -348,7 +353,8 @@ describe('GET /api/jobs', () => {
 		expect(body.jobs.map((job) => job.title).sort()).toEqual(['Accountant', 'Round Rock Role']);
 		expect(JSON.stringify(body)).not.toContain('test-maps-key');
 		expect(fake.geocodeKeys).toContain('test-maps-key');
-		expect(fake.urls.some((url) => decodeURIComponent(url).includes('isPublic:1'))).toBe(true);
+		expect(fake.urls.some((url) => decodeURIComponent(url).includes('isPublic:"-1"'))).toBe(true);
+		expect(fake.urls.some((url) => decodeURIComponent(url).includes('sort=-customDate1'))).toBe(true);
 	});
 
 	it('reports an unrecognized location without a job list', async () => {
