@@ -268,7 +268,7 @@ if (form || description) {
 					job.location,
 					job.employmentType,
 					job.worksite?.trim() || (job.remote ? 'Remote' : ''),
-					formatSalaryRange(job),
+					formatSalaryRange(job, ' - '),
 					job.description,
 					job.division?.trim() ?? '',
 				);

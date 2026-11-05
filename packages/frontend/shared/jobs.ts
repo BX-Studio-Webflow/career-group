@@ -34,11 +34,14 @@ export function formatSalary(salary: number | null, unit: string): string {
 	return unit ? `${amount} ${unit}` : amount;
 }
 
-export function formatSalaryRange(job: Pick<JobSummary, 'salary' | 'salaryMin' | 'salaryMax' | 'salaryUnit'>): string {
+export function formatSalaryRange(
+	job: Pick<JobSummary, 'salary' | 'salaryMin' | 'salaryMax' | 'salaryUnit'>,
+	separator = '–',
+): string {
 	const min = job.salaryMin ?? null;
 	const max = job.salaryMax ?? job.salary;
 	if (min != null && max != null && min !== max) {
-		return `${formatCardSalary(min, job.salaryUnit)}–${formatCardSalary(max, job.salaryUnit)}`;
+		return `${formatCardSalary(min, job.salaryUnit)}${separator}${formatCardSalary(max, job.salaryUnit)}`;
 	}
 
 	return formatCardSalary(max ?? min, job.salaryUnit);
