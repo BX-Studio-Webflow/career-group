@@ -70,8 +70,30 @@ function fillWorkplace(worksite: string): void {
 	node.classList.toggle('hide', worksite.length === 0);
 }
 
+/**
+ * The category value, by its `dev-target`. Falls back to the highlight row
+ * whose eyebrow label reads "category", so a row added without the attribute
+ * still fills (or hides) instead of showing its placeholder text.
+ */
+function categoryNode(): HTMLElement | null {
+	const marked = document.querySelector<HTMLElement>('[dev-target="job-category"]');
+	if (marked) {
+		return marked;
+	}
+
+	const rows = document.querySelectorAll<HTMLElement>(`${HIGHLIGHT_SELECTOR} .highlight`);
+	for (const row of rows) {
+		const label = row.querySelector('.eyebrow');
+		if (label?.textContent?.trim().toLowerCase() === 'category') {
+			return [...row.querySelectorAll<HTMLElement>('p')].find((paragraph) => paragraph !== label) ?? null;
+		}
+	}
+
+	return null;
+}
+
 function fillCategory(category: string): void {
-	const node = document.querySelector<HTMLElement>('[dev-target="job-category"]');
+	const node = categoryNode();
 	if (!node) {
 		console.error('[Careers] Category field is missing.');
 		return;
