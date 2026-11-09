@@ -11,6 +11,9 @@ interface WebflowNamespace {
 	push: (callback: () => void) => void;
 }
 
+/** Items carrying this attribute start open, as well as the first item. */
+export const OPEN_ATTRIBUTE = 'dev-accordion-open';
+
 function devTarget(name: string): string {
 	return `[dev-target="${name}"]`;
 }
@@ -67,7 +70,11 @@ class AccordionGroup {
 			return;
 		}
 
-		this.items[0]?.classList.add(this.activeClass);
+		this.items.forEach((item, index) => {
+			if (index === 0 || item.hasAttribute(OPEN_ATTRIBUTE)) {
+				item.classList.add(this.activeClass);
+			}
+		});
 		this.startAutoCycle();
 	}
 

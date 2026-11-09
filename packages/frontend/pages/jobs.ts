@@ -1,4 +1,4 @@
-import { Accordion } from '../shared/accordion';
+import { Accordion, OPEN_ATTRIBUTE } from '../shared/accordion';
 import { fetchJobsNear, fetchPublishedJobs, readApiOrigin } from '../shared/api';
 import { divisionChipColor } from '../shared/divisions';
 import { bindErrorCancel, hideError, showError } from '../shared/errors';
@@ -33,6 +33,7 @@ const FILTER_WRAPPER_SELECTOR = '[dev-target="filter-wrapper"]';
 const FILTER_TRIGGER_SELECTOR = '[dev-target="filter-trigger"]';
 const FILTER_CLOSE_SELECTOR = '[dev-target="filter-close"]';
 const MOBILE_FILTER_QUERY = '(max-width: 767px)';
+const PAGE_SIZE = 100;
 
 interface Filters {
 	q: string;
@@ -438,6 +439,30 @@ function fillCategories(jobs: JobSummary[]): void {
 	}
 }
 
+const LOCATION_LIST_ID = 'job-location-options';
+
+/** Fills the location box's dropdown with the cities of the loaded jobs, like the live combobox. */
+function fillLocations(jobs: JobSummary[]): void {
+	const input = document.querySelector<HTMLInputElement>(LOCATION_SELECTOR);
+	if (!input) {
+		return;
+	}
+
+	const names = [...new Set(jobs.map((job) => job.location.trim()).filter(Boolean))].sort((left, right) => left.localeCompare(right));
+	const list = document.createElement('datalist');
+	list.id = LOCATION_LIST_ID;
+	for (const name of names) {
+		const option = document.createElement('option');
+		option.value = name;
+		list.append(option);
+	}
+
+	document.getElementById(LOCATION_LIST_ID)?.remove();
+	input.after(list);
+	input.setAttribute('list', LOCATION_LIST_ID);
+	input.autocomplete = 'off';
+}
+
 function resultsRoot(): HTMLElement | null {
 	const marked = document.querySelector<HTMLElement>(RESULTS_SELECTOR);
 	if (!marked) {
@@ -482,9 +507,47 @@ function fillResults(shown: number, total: number): void {
 	totalNode.textContent = String(total);
 }
 
+function newestFirst(jobs: JobSummary[]): JobSummary[] {
+	return [...jobs].sort((left, right) => (right.publishedAt ?? Number.NEGATIVE_INFINITY) - (left.publishedAt ?? Number.NEGATIVE_INFINITY));
+}
+
+let pageObserver: IntersectionObserver | null = null;
+
+function appendPage(list: HTMLElement, template: HTMLElement, jobs: JobSummary[], from: number): void {
+	pageObserver?.disconnect();
+	pageObserver = null;
+
+	const end = Math.min(from + PAGE_SIZE, jobs.length);
+	for (const job of jobs.slice(from, end)) {
+		const card = template.cloneNode(true) as HTMLElement;
+		fillCard(card, job, detailHref(list, job.id));
+		list.append(card);
+	}
+	if (end >= jobs.length) {
+		return;
+	}
+
+	// Like the live CMS Load list: the next 100 jobs load once the last card scrolls near view.
+	const last = list.lastElementChild;
+	if (!last) {
+		return;
+	}
+	pageObserver = new IntersectionObserver(
+		(entries) => {
+			if (entries.some((entry) => entry.isIntersecting)) {
+				appendPage(list, template, jobs, end);
+			}
+		},
+		{ rootMargin: '600px 0px' },
+	);
+	pageObserver.observe(last);
+}
+
 function render(list: HTMLElement, template: HTMLElement, jobs: JobSummary[], locationText = ''): void {
 	const visible = jobs.filter((job) => matches(job, readFilters(), locationText));
 	fillResults(visible.length, jobs.length);
+	pageObserver?.disconnect();
+	pageObserver = null;
 	list.replaceChildren();
 
 	if (visible.length === 0) {
@@ -495,12 +558,7 @@ function render(list: HTMLElement, template: HTMLElement, jobs: JobSummary[], lo
 	}
 
 	hideError();
-
-	for (const job of visible) {
-		const card = template.cloneNode(true) as HTMLElement;
-		fillCard(card, job, detailHref(list, job.id));
-		list.append(card);
-	}
+	appendPage(list, template, newestFirst(visible), 0);
 }
 
 function bindChoice(inputs: HTMLInputElement[], onChange: () => void): void {
@@ -574,6 +632,16 @@ function bindMobileFilter(): void {
 	}
 }
 
+function openLocationFilter(): void {
+	const item = document.querySelector(LOCATION_SELECTOR)?.closest('[dev-target="accordion-item"]');
+	if (!item) {
+		logEarly('Location filter is not inside an accordion item.');
+		return;
+	}
+
+	item.setAttribute(OPEN_ATTRIBUTE, '');
+}
+
 function start(): void {
 	bindMobileFilter();
 	const list = document.querySelector<HTMLElement>(LIST_SELECTOR);
@@ -605,6 +673,7 @@ function start(): void {
 	employmentInputs = choiceInputs(EMPLOYMENT_SELECTOR, EMPLOYMENT_OPTIONS, 'employment-type');
 	salaryInputs = choiceInputs(SALARY_SELECTOR, SALARY_OPTIONS, 'salary');
 	functionInputs = jobFunctionInputs();
+	openLocationFilter();
 	new Accordion({
 		wrapper: 'accordion-wrapper',
 		item: 'accordion-item',
@@ -709,6 +778,7 @@ function start(): void {
 		.then((jobs) => {
 			loaded = jobs;
 			fillCategories(jobs);
+			fillLocations(jobs);
 			paint();
 		})
 		.catch((error: unknown) => {

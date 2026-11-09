@@ -70,10 +70,28 @@ function fillWorkplace(worksite: string): void {
 	node.classList.toggle('hide', worksite.length === 0);
 }
 
+function fillCategory(category: string): void {
+	const node = document.querySelector<HTMLElement>('[dev-target="job-category"]');
+	if (!node) {
+		console.error('[Careers] Category field is missing.');
+		return;
+	}
+
+	node.textContent = category;
+	const row = node.closest<HTMLElement>('[dev-target="job-category-row"], .highlight') ?? node;
+	row.classList.toggle('hide', category.length === 0);
+}
+
+/** Matches the live job pages: "Job Title | Hiring | Location". */
+function pageTitle(title: string, location: string): string {
+	return [title, 'Hiring', location].filter(Boolean).join(' | ');
+}
+
 function fillJob(
 	title: string,
 	location: string,
 	employmentType: string,
+	category: string,
 	worksite: string,
 	salary: string,
 	description: string,
@@ -82,13 +100,14 @@ function fillJob(
 	setText('job-title', title);
 	setText('job-location', location);
 	setText('job-type', employmentType);
+	fillCategory(category);
 	fillWorkplace(worksite);
 	setText('job-salary', salary);
 	setText('division', division);
 	fillHighlight(division);
 	showDivisionCard(division);
 	showHighlight();
-	document.title = title;
+	document.title = pageTitle(title, location);
 	showJobBody();
 	hideLoading();
 
@@ -267,6 +286,7 @@ if (form || description) {
 					job.title,
 					job.location,
 					job.employmentType,
+					job.category.trim(),
 					job.worksite?.trim() || (job.remote ? 'Remote' : ''),
 					formatSalaryRange(job, ' - '),
 					job.description,
